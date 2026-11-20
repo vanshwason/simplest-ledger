@@ -60,11 +60,19 @@ Plain text: by category, by payment method, who owes whom. Copy or share.</td>
 
 ## 📲 Install (free)
 
-1. Download **SimplestLedger.ipa** from [Releases](../../releases/latest).
-2. Install with [Sideloadly](https://sideloadly.io) and a free Apple ID.
-3. iPhone: Settings → General → VPN & Device Management → **Trust**.
+Pick one. Both use a free Apple ID; turn on **Developer Mode** on the iPhone (Settings → Privacy & Security).
 
-Re-install every 7 days (free Apple ID limit). Your data stays.
+**SideStore** (recommended: no computer after setup)
+1. Once, on a Windows PC or Mac: install [SideStore](https://docs.sidestore.io) with **iloader** and a USB cable.
+2. In SideStore → **Sources** → **+**, add:<br>`https://github.com/vanshwason/simplest-ledger/releases/latest/download/sidestore.json`
+3. Install **Simplest Ledger**. SideStore renews it every 7 days over Wi-Fi, and new versions show up as updates.
+
+**Sideloadly** (computer every 7 days)
+1. Download **SimplestLedger.ipa** from [Releases](../../releases/latest) and install it with [Sideloadly](https://sideloadly.io).
+2. iPhone: Settings → General → VPN & Device Management → **Trust**.
+3. Re-install every 7 days. Your data stays.
+
+Switching between the two? Keep a backup first (menu → Backup folder): the app may install as a new copy.
 
 **Works on** any iPhone with **iOS 26** (iPhone 11 or newer, SE 2nd gen or newer). Smarter parsing with Apple Intelligence on iPhone 15 Pro, all iPhone 16 and 17 models; other iPhones use the built-in offline parser. Tested on iPhone 16 Pro.
 

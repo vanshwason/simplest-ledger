@@ -22,9 +22,14 @@ jobs:
         run: brew install xcodegen && xcodegen generate
       - name: Build unsigned app
         run: |
+          # A v1.2.3 tag makes the app version 1.2.3, so SideStore sees the update.
+          VERSION_ARGS=""
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION_ARGS="MARKETING_VERSION=${GITHUB_REF_NAME#v} CURRENT_PROJECT_VERSION=$GITHUB_RUN_NUMBER"
+          fi
           xcodebuild -project Ledger.xcodeproj -scheme Ledger -configuration Release \
             -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO $VERSION_ARGS build
       - name: Package IPA
         # Sideloadly signs it with your free Apple ID on install.
         run: |
@@ -39,7 +44,36 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$GITHUB_REF_NAME" SimplestLedger.ipa --clobber
+        # sidestore.json is the SideStore source. Its link always points at the latest release:
+        # https://github.com/<owner>/<repo>/releases/latest/download/sidestore.json
+        run: |
+          python3 - <<'EOF'
+          import json, os, datetime
+          repo, tag = os.environ["GITHUB_REPOSITORY"], os.environ["GITHUB_REF_NAME"]
+          raw = f"https://raw.githubusercontent.com/{repo}/main/docs"
+          source = {
+              "name": "Simplest Ledger", "identifier": "app.simple.ledger.source",
+              "sourceURL": f"https://github.com/{repo}/releases/latest/download/sidestore.json",
+              "iconURL": f"{raw}/icon.png", "website": f"https://github.com/{repo}",
+              "apps": [{
+                  "name": "Simplest Ledger", "bundleIdentifier": "app.simple.ledger",
+                  "developerName": repo.split("/")[0], "subtitle": "A private expense tracker. Type it like a message.",
+                  "localizedDescription": "Type what you spent and it's sorted for you. Bank SMS, splits, trips and monthly statements. No account, everything stays on your phone.",
+                  "iconURL": f"{raw}/icon.png", "tintColor": "#00A884",
+                  "screenshots": [f"{raw}/screenshots/{n}.png" for n in ("list", "typing", "sms-entry", "statement")],
+                  "versions": [{
+                      "version": tag.lstrip("v"), "buildVersion": os.environ["GITHUB_RUN_NUMBER"],
+                      "date": datetime.date.today().isoformat(), "minOSVersion": "26.0",
+                      "downloadURL": f"https://github.com/{repo}/releases/download/{tag}/SimplestLedger.ipa",
+                      "size": os.path.getsize("SimplestLedger.ipa"),
+                      "localizedDescription": f"See https://github.com/{repo}/releases/tag/{tag}",
+                  }],
+              }],
+              "news": [],
+          }
+          json.dump(source, open("sidestore.json", "w"), indent=2)
+          EOF
+          gh release upload "$GITHUB_REF_NAME" SimplestLedger.ipa sidestore.json --clobber
       - name: Run in iPhone Simulator, type entries, screenshot
         # Windows can't run the simulator, so this is the "test it here" step. Apple Intelligence is not available here, so it uses the keyword parser.
         run: |
@@ -90,6 +124,25 @@ jobs:
           xcrun simctl ui "$DEVICE" appearance dark
           xcrun simctl launch "$DEVICE" app.simple.ledger -no-keyboard && sleep 6
           xcrun simctl io "$DEVICE" screenshot shots/3-dark.png
+      - name: Small screen (iPhone SE)
+        continue-on-error: true
+        run: |
+          SE=$(xcrun simctl list devices available | grep -m1 "iPhone SE" | grep -oE '[0-9A-F-]{36}' || true)
+          [ -n "$SE" ] || SE=$(xcrun simctl create "SE" com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation)
+          xcrun simctl boot "$SE" && xcrun simctl bootstatus "$SE" -b
+          xcrun simctl install "$SE" simbuild/Build/Products/Debug-iphonesimulator/Ledger.app
+          xcrun simctl status_bar "$SE" override --time 9:41 --batteryLevel 100 --batteryState charged
+          xcrun simctl launch "$SE" app.simple.ledger -no-keyboard -add "$(printf '1500 spent on snacks via upi\n5000 rupees lent through credit card to Rahul\nsalary 50000 credited\npaid 300')" && sleep 10
+          xcrun simctl io "$SE" screenshot shots/se-1-entries.png
+          xcrun simctl terminate "$SE" app.simple.ledger
+          xcrun simctl launch "$SE" app.simple.ledger -sms-setup -no-keyboard && sleep 6
+          xcrun simctl io "$SE" screenshot shots/se-2-sms.png
+          xcrun simctl terminate "$SE" app.simple.ledger
+          xcrun simctl launch "$SE" app.simple.ledger -no-keyboard -edit-first && sleep 6
+          xcrun simctl io "$SE" screenshot shots/se-3-edit.png
+          xcrun simctl terminate "$SE" app.simple.ledger
+          xcrun simctl launch "$SE" app.simple.ledger -prefill "dinner 850 with friends via UPI" && sleep 6
+          xcrun simctl io "$SE" screenshot shots/se-4-typing.png
       - uses: actions/upload-artifact@v4
         if: always()
         with:
