@@ -44,6 +44,11 @@ final class Store {
         entries.append(entry); save()
     }
 
+    /// When the automation last delivered a message, so the setup screen can say it's working.
+    var lastMessageAt = UserDefaults.standard.object(forKey: "lastMessageAt") as? Date {
+        didSet { UserDefaults.standard.set(lastMessageAt, forKey: "lastMessageAt") }
+    }
+
     /// From the Shortcuts automation (a bank SMS, a shared WhatsApp message). The same text twice within a
     /// day is skipped, since automations can fire more than once for one message.
     func addFromMessage(_ text: String) async -> Entry? {
@@ -52,6 +57,7 @@ final class Store {
               !entries.contains(where: { $0.raw == clean && Date().timeIntervalSince($0.date) < 86_400 }) else { return nil }
         let entry = await SmartParser.parse(clean)
         add(entry)
+        lastMessageAt = Date()
         return entry
     }
 

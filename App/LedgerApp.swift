@@ -33,6 +33,7 @@ struct ContentView: View {
     @State private var notice: String? // shown above the text box when a command found nothing
     @State private var noticeChips: [String] = []
     @State private var showHelp = false
+    @State private var showSMS = false
     @State private var showScanner = false
     @State private var showPhotos = false
     @State private var photoItem: PhotosPickerItem?
@@ -196,6 +197,7 @@ struct ContentView: View {
                     } else {
                     Menu {
                         Button { showHelp = true } label: { Label("What Can I Type?", systemImage: "questionmark.circle") }
+                        Button { showSMS = true } label: { Label("Read Bank SMS…", systemImage: "message.badge") }
                         Button { animate { editMode = .active } } label: { Label("Select Entries", systemImage: "checkmark.circle") }
                         if store.activeTrip == nil {
                             Button { tripName = ""; askTripName = true } label: { Label("Start a Trip…", systemImage: "suitcase") }
@@ -230,6 +232,7 @@ struct ContentView: View {
                     photoItem = nil
                 }
             }
+            .sheet(isPresented: $showSMS) { SMSSetupSheet() }
             .sheet(isPresented: $showHelp) { HelpSheet { input = $0; notice = nil; showHelp = false; inputFocused = true } }
             .fileImporter(isPresented: Binding(get: { picker != nil }, set: { if !$0 { picker = nil } }),
                           allowedContentTypes: picker == .folder ? [.folder] : [.commaSeparatedText, .plainText]) { result in
@@ -262,6 +265,7 @@ struct ContentView: View {
                 let args = ProcessInfo.processInfo.arguments
                 if let i = args.firstIndex(of: "-add"), i + 1 < args.count { input = args[i + 1]; add() }
                 showStatement = args.contains("-statement")
+                showSMS = args.contains("-sms-setup")
                 if args.contains("-edit-first") { editing = store.entries.first(where: \.needsInput) ?? store.entries.first }
             }
         }

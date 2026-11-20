@@ -107,6 +107,78 @@ struct HelpSheet: View {
     }
 }
 
+/// Settings for reading bank SMS. iOS gives apps no SMS access, so this walks you through the one-time
+/// Shortcuts automation that hands matching messages to the app, and lets you test a message first.
+struct SMSSetupSheet: View {
+    @Environment(Store.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+    @AppStorage("smsWords") private var savedWords = "debited,spent,credited"
+    @State private var sample = ""
+
+    static let allWords = ["debited", "spent", "credited", "earned", "paid", "received", "withdrawn", "deducted", "sent"]
+
+    private var words: Binding<[String]> {
+        Binding(get: { savedWords.split(separator: ",").map(String.init) },
+                set: { savedWords = Self.allWords.filter($0.contains).joined(separator: ",") })
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Label {
+                        if let last = store.lastMessageAt {
+                            Text("Working · last SMS added \(last.formatted(.relative(presentation: .named)))")
+                        } else {
+                            Text("Not set up yet")
+                        }
+                    } icon: {
+                        Image(systemName: store.lastMessageAt == nil ? "circle.dashed" : "checkmark.circle.fill")
+                            .foregroundStyle(store.lastMessageAt == nil ? Color.secondary : accent)
+                    }
+                } footer: {
+                    Text("iPhone doesn't let any app read your messages. A one-time Shortcuts automation sends bank SMS to Plain Ledger instead, in the background.")
+                }
+
+                Section("Words to watch for") {
+                    MultiChips(options: Self.allWords, selected: words)
+                }
+
+                Section("Set it up, once per word") {
+                    step(1, "Open Shortcuts, then Automation, then +, then Message.")
+                    step(2, "Message Contains: one word below. Leave Sender empty so every bank works.")
+                    step(3, "Choose Run Immediately and turn off Notify When Run. Tap Next.")
+                    step(4, "New Blank Automation, then Add Action. Pick Add to Ledger and set Message to Shortcut Input → Content.")
+                    if !words.wrappedValue.isEmpty {
+                        Text("Words: " + words.wrappedValue.joined(separator: ", ")).font(.callout.weight(.medium))
+                    }
+                    Button { openURL(URL(string: "shortcuts://")!) } label: {
+                        Label("Open Shortcuts", systemImage: "arrow.up.forward.app")
+                    }
+                    .buttonStyle(.glassProminent).tint(accent)
+                }
+
+                Section {
+                    TextField("Paste a bank SMS", text: $sample, axis: .vertical).lineLimit(2...5)
+                    if !sample.trimmingCharacters(in: .whitespaces).isEmpty {
+                        EntryRow(entry: RuleParser.parse(sample)) // preview only, nothing is saved
+                    }
+                } header: { Text("Try a message") } footer: {
+                    Text("Shows what would be saved. Nothing is added from here.")
+                }
+            }
+            .navigationTitle("Read Bank SMS")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+        }
+    }
+
+    private func step(_ n: Int, _ text: String) -> some View {
+        Label { Text(text) } icon: { Text("\(n)").font(.footnote.bold()).frame(width: 22, height: 22).background(.fill.tertiary, in: .circle) }
+    }
+}
+
 /// Edit an entry by tapping: amount, a category tile, a person chip, a payment chip. Extras hide under "More".
 struct EditView: View {
     @Environment(Store.self) private var store
