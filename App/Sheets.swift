@@ -113,15 +113,7 @@ struct SMSSetupSheet: View {
     @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
-    @AppStorage("smsWords") private var savedWords = "debited,spent,credited"
     @State private var sample = ""
-
-    static let allWords = ["debited", "spent", "credited", "earned", "paid", "received", "withdrawn", "deducted", "sent"]
-
-    private var words: Binding<[String]> {
-        Binding(get: { savedWords.split(separator: ",").map(String.init) },
-                set: { savedWords = Self.allWords.filter($0.contains).joined(separator: ",") })
-    }
 
     var body: some View {
         NavigationStack {
@@ -141,22 +133,18 @@ struct SMSSetupSheet: View {
                     Text("iPhone doesn't let any app read your messages. A one-time Shortcuts automation sends bank SMS to Simplest Ledger instead, in the background.")
                 }
 
-                Section("Words to watch for") {
-                    MultiChips(options: Self.allWords, selected: words)
-                }
-
-                Section("Set it up, once per word") {
-                    step(1, "Open Shortcuts, then Automation, then +, then Message.")
-                    step(2, "Message Contains: one word below. Leave Sender empty so every bank works.")
-                    step(3, "Choose Run Immediately and turn off Notify When Run. Tap Next.")
-                    step(4, "New Blank Automation, then Add Action. Pick Add to Ledger and set Message to Shortcut Input → Content.")
-                    if !words.wrappedValue.isEmpty {
-                        Text("Words: " + words.wrappedValue.joined(separator: ", ")).font(.callout.weight(.medium))
-                    }
+                // One broad automation is enough: the app ignores anything that isn't a bank transaction.
+                Section {
+                    step(1, "Shortcuts → Automation → + → Message.")
+                    step(2, "Message Contains: Rs. Leave Sender empty.")
+                    step(3, "Run Immediately, Notify off. Next.")
+                    step(4, "Add Action: Add to Ledger. Message: Shortcut Input.")
                     Button { openURL(URL(string: "shortcuts://")!) } label: {
                         Label("Open Shortcuts", systemImage: "arrow.up.forward.app")
                     }
                     .buttonStyle(.glassProminent).tint(accent)
+                } header: { Text("One-time setup, about a minute") } footer: {
+                    Text("Your bank writes INR instead of Rs? Make a second one with INR. Chats and OTPs are ignored automatically.")
                 }
 
                 Section {

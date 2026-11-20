@@ -63,6 +63,13 @@ final class PublicSamplesTests: XCTestCase {
         XCTAssert(kept.isEmpty, "\nshould be ignored:\n" + kept.joined(separator: "\n"))
     }
 
+    /// One broad automation ("contains Rs") also catches chats; those must never become entries.
+    func testChatsAreNotTransactions() {
+        let chats = ["I'll see yours at 5, two hours from now", "paid 500 for your ticket, send it back later",
+                     "Rs 200 de dena kal", "Happy birthday! Cheers to many more years", "Your Uber is arriving in 3 mins"]
+        for c in chats { XCTAssertNotNil(MessageFilter.ignoreReason(c), c) }
+    }
+
     func testBankSMSDetails() {
         XCTAssertEqual(RuleParser.parse(Self.transactions[0].text).category, "Groceries")       // blinkit
         XCTAssertEqual(RuleParser.parse(Self.transactions[1].text).category, "Food Delivery")   // zomato
