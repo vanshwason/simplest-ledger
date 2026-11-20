@@ -67,6 +67,8 @@ Pick one. Both use a free Apple ID; turn on **Developer Mode** on the iPhone (Se
 2. In SideStore → **Sources** → **+**, add:<br>`https://github.com/vanshwason/simplest-ledger/releases/latest/download/sidestore.json`
 3. Install **Simplest Ledger**. SideStore renews it every 7 days over Wi-Fi, and new versions show up as updates.
 
+SideStore needs the free **LocalDevVPN** app (no account, nothing leaves your phone) switched on only to install, update or renew. Leave it on to renew automatically, or turn it on once a week and tap **Refresh All**. Simplest Ledger itself works with it off. Missed 7 days? The app won't open until you refresh; your entries stay.
+
 **Sideloadly** (computer every 7 days)
 1. Download **SimplestLedger.ipa** from [Releases](../../releases/latest) and install it with [Sideloadly](https://sideloadly.io).
 2. iPhone: Settings → General → VPN & Device Management → **Trust**.
