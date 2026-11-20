@@ -159,6 +159,22 @@ final class LedgerCoreTests: XCTestCase {
         XCTAssertEqual(Suggest.distance("splt", "split"), 1)
     }
 
+    func testReceiptReader() {
+        let restaurant = ["DOMINO'S PIZZA", "Tax Invoice", "Date: 20/11/2026", "Ph 9876543210",
+                          "Pizza 450.00", "Coke 60.00", "Grand Total 540.00"]
+        let s = ReceiptReader.sentence(from: restaurant)
+        XCTAssertEqual(s, "540 DOMINO'S PIZZA (scanned receipt)")
+        let e = parse(s!)
+        XCTAssertEqual(e.amount, 540); XCTAssertEqual(e.category, "Dining Out")
+
+        // Vision often reads "Total" and its amount as separate lines; cash tendered isn't the bill.
+        XCTAssertEqual(ReceiptReader.sentence(from: ["Big Bazaar", "Total", "1,250.00"]), "1250 Big Bazaar (scanned receipt)")
+        // UPI payment screenshot: ₹ amount, payee name; transaction IDs and years ignored.
+        XCTAssertEqual(ReceiptReader.sentence(from: ["Paid to Rahul Sharma", "₹500", "UPI transaction ID 123456789012", "20 Nov 2026"]),
+                       "500 Rahul Sharma (scanned receipt)")
+        XCTAssertNil(ReceiptReader.sentence(from: ["hello world", "call 9876543210"]))
+    }
+
     func testDeleteCommands() {
         var old = parse("1500 spent on snacks"); old.date = cal.date(byAdding: .day, value: -1, to: now)!
         let uber = parse("200 uber"), lent = parse("lent 5000 to Rahul")

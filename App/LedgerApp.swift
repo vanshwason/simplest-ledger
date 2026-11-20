@@ -1,5 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import PhotosUI
+import VisionKit
 import LedgerCore
 
 @main
@@ -29,6 +31,9 @@ struct ContentView: View {
     @State private var notice: String? // shown above the text box when a command found nothing
     @State private var noticeChips: [String] = []
     @State private var showHelp = false
+    @State private var showScanner = false
+    @State private var showPhotos = false
+    @State private var photoItem: PhotosPickerItem?
     @State private var editing: Entry?
     @State private var showStatement = false
     @State private var picker: PickerMode?
@@ -203,6 +208,19 @@ struct ContentView: View {
             .sheet(item: $editing) { EditView(entry: $0).navigationTransition(.zoom(sourceID: $0.id, in: zoom)) }
             .sheet(isPresented: $showStatement) { StatementView() }
             .sheet(item: $splitting) { SplitSheet(pending: $0) }
+            .fullScreenCover(isPresented: $showScanner) {
+                DocumentScanner { images in showScanner = false; readReceipt(images) }.ignoresSafeArea()
+            }
+            .photosPicker(isPresented: $showPhotos, selection: $photoItem, matching: .images)
+            .onChange(of: photoItem) { _, item in
+                guard let item else { return }
+                Task {
+                    if let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data)?.cgImage {
+                        readReceipt([image])
+                    }
+                    photoItem = nil
+                }
+            }
             .sheet(isPresented: $showHelp) { HelpSheet { input = $0; notice = nil; showHelp = false; inputFocused = true } }
             .fileImporter(isPresented: Binding(get: { picker != nil }, set: { if !$0 { picker = nil } }),
                           allowedContentTypes: picker == .folder ? [.folder] : [.commaSeparatedText, .plainText]) { result in
@@ -265,11 +283,24 @@ struct ContentView: View {
                 .transition(.opacity)
             }
             HStack(alignment: .bottom, spacing: 8) {
-                TextField("e.g. 1500 spent on snacks", text: $input, axis: .vertical)
-                    .lineLimit(1...6)
-                    .focused($inputFocused)
-                    .padding(.horizontal, 16).padding(.vertical, 12)
-                    .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 22))
+                HStack(alignment: .bottom, spacing: 4) {
+                    TextField("e.g. 1500 spent on snacks", text: $input, axis: .vertical)
+                        .lineLimit(1...6)
+                        .focused($inputFocused)
+                        .padding(.vertical, 12)
+                    Menu {
+                        if VNDocumentCameraViewController.isSupported {
+                            Button { showScanner = true } label: { Label("Scan Receipt", systemImage: "doc.viewfinder") }
+                        }
+                        Button { showPhotos = true } label: { Label("Choose Photo or Screenshot", systemImage: "photo") }
+                    } label: {
+                        Image(systemName: "doc.viewfinder").font(.title3).foregroundStyle(.secondary)
+                            .frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel("Scan receipt")
+                }
+                .padding(.leading, 16).padding(.trailing, 4)
+                .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 22))
                 Button(action: add) {
                     if busy { ProgressView().transition(.scale.combined(with: .opacity)) } else {
                         Image(systemName: "arrow.up").font(.body.bold())
@@ -309,6 +340,21 @@ struct ContentView: View {
                 animate { store.delete(ids: Array(selection)); selection = []; editMode = .inactive }
                 deleted += 1
             }
+        }
+    }
+
+    /// Reads the receipt on-device and puts a sentence in the box for you to check, then tap ↑.
+    private func readReceipt(_ images: [CGImage]) {
+        guard !images.isEmpty else { return }
+        busy = true
+        Task {
+            if let sentence = await ReceiptText.sentence(from: images) {
+                input = sentence; inputFocused = true
+            } else {
+                notice = "Couldn't find a total on that receipt. Type it instead, like “540 dominos”."
+                noticeChips = []
+            }
+            busy = false
         }
     }
 
