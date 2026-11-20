@@ -175,6 +175,24 @@ final class LedgerCoreTests: XCTestCase {
         XCTAssertNil(ReceiptReader.sentence(from: ["hello world", "call 9876543210"]))
     }
 
+    func testBankSMS() {
+        let upi = parse("Rs 500.00 debited from A/c XX1234 on 20-11-26 to VPA swiggy@icici (UPI Ref 432112345678). Avl Bal Rs 25,340.50")
+        XCTAssertEqual(upi.amount, 500); XCTAssertEqual(upi.kind, .expense)
+        XCTAssertEqual(upi.category, "Food Delivery"); XCTAssertEqual(upi.method, "UPI")
+
+        let card = parse("INR 2,499.00 spent on HDFC Bank Credit Card XX4321 at AMAZON on 2026-11-20. Avl limit: INR 1,20,000")
+        XCTAssertEqual(card.amount, 2499); XCTAssertEqual(card.method, "Credit Card"); XCTAssertEqual(card.category, "Online Shopping")
+
+        let salary = parse("Rs.50000 credited to A/c XX1234 by NEFT from ACME SALARY. Avl Bal Rs 75,000")
+        XCTAssertEqual(salary.amount, 50000); XCTAssertEqual(salary.kind, .income); XCTAssertEqual(salary.category, "Salary")
+
+        let both = parse("Your a/c XX99 debited Rs 300 and credited to Rahul via UPI")
+        XCTAssertEqual(both.kind, .expense); XCTAssertEqual(both.amount, 300)
+
+        XCTAssertEqual(RuleParser.amount(in: "2 hours parking 50"), 50) // "rs" inside "hours" isn't rupees
+        XCTAssertEqual(RuleParser.amount(in: "₹1.5k cab"), 1500)
+    }
+
     func testDeleteCommands() {
         var old = parse("1500 spent on snacks"); old.date = cal.date(byAdding: .day, value: -1, to: now)!
         let uber = parse("200 uber"), lent = parse("lent 5000 to Rahul")

@@ -48,6 +48,17 @@ Each install:
 
 Free Apple ID limits: 3 sideloaded apps at a time, and the app is re-signed every 7 days.
 
+## Bank SMS → Ledger automatically (one-time setup)
+
+iOS never lets apps read your SMS. A Shortcuts automation can pass matching messages to the app instead:
+
+1. Open the **Shortcuts** app, then **Automation**, **+**, **Message**.
+2. **Message Contains:** `debited`. Leave Sender empty (any bank). Choose **Run Immediately**, turn off **Notify When Run**, and tap **Next**.
+3. Tap **New Blank Automation**, then **Add Action**. Search **Add to Ledger** (from Plain Ledger) and set **Message** to *Shortcut Input → Content*.
+4. Repeat steps 1–3 for `spent`, and for `credited` if you also want income (salary, refunds).
+
+Every matching SMS now becomes an entry in the background. The app picks the payment amount and ignores account numbers and "Avl Bal". It also notes UPI or card, and the shop where it can (Swiggy, Amazon…). The same message is never added twice. OTPs and promos don't contain those words, so they're ignored.
+
 ## WhatsApp → Ledger (one-time Shortcut)
 
 iPhone apps can't read WhatsApp chats, but WhatsApp can *share* a message to a Shortcut:

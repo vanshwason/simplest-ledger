@@ -6,7 +6,7 @@ import LedgerCore
 
 @main
 struct LedgerApp: App {
-    @State private var store = Store()
+    @State private var store = Store.shared
     var body: some Scene {
         WindowGroup { ContentView().environment(store) }
     }

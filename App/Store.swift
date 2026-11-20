@@ -5,6 +5,9 @@ import LedgerCore
 /// Entries live in Documents/ledger.json on the phone. A CSV copy goes to your backup folder after every change.
 @Observable @MainActor
 final class Store {
+    /// One store for the app and the Shortcuts action, so an SMS added in the background shows up live.
+    static let shared = Store()
+
     var entries: [Entry] = []
     var error: String?
     private(set) var backupFolderName = UserDefaults.standard.string(forKey: "backupFolderName")
@@ -39,6 +42,17 @@ final class Store {
         var entry = entry
         if entry.trip == nil { entry.trip = activeTrip }
         entries.append(entry); save()
+    }
+
+    /// From the Shortcuts automation (a bank SMS, a shared WhatsApp message). The same text twice within a
+    /// day is skipped, since automations can fire more than once for one message.
+    func addFromMessage(_ text: String) async -> Entry? {
+        let clean = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty,
+              !entries.contains(where: { $0.raw == clean && Date().timeIntervalSince($0.date) < 86_400 }) else { return nil }
+        let entry = await SmartParser.parse(clean)
+        add(entry)
+        return entry
     }
 
     func update(_ entry: Entry) {

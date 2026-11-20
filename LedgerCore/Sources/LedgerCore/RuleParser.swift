@@ -61,6 +61,8 @@ public enum RuleParser {
             kind = .lent
         } else if has(["borrowed", "borrow"]) {
             kind = .borrowed
+        } else if has(["debited", "spent", "deducted", "withdrawn"]) {
+            kind = .expense // bank SMS often says "debited from you … credited to them"
         } else if has(["received", "got", "salary", "income", "credited", "earned", "refund", "cashback"]) {
             kind = .income
         } else {
@@ -85,16 +87,27 @@ public enum RuleParser {
         return entry
     }
 
-    /// Largest number in the text, so "2 samosa 40" gives 40. Understands 5k, 1.5 lakh, 1,500.
+    static let currencyRegex = try! Regex(#"(?:₹|\brs\.?|\binr)\s*(\d[\d,]*(?:\.\d+)?)\s*(k|thousand|lakhs?|lacs?)?\b"#).ignoresCase()
+
+    /// The amount in the text. A ₹/Rs/INR-marked amount wins, skipping balances and limits, so a bank SMS like
+    /// "Rs 500 debited from A/c XX1234 … Avl Bal Rs 25,340" gives 500. Otherwise the largest number, so
+    /// "2 samosa 40" gives 40. Understands 5k, 1.5 lakh, 1,500.
     public static func amount(in text: String) -> Decimal? {
-        text.matches(of: amountRegex).compactMap { m -> Decimal? in
-            guard let digits = m.output[1].substring,
-                  let value = Decimal(string: digits.replacingOccurrences(of: ",", with: "")) else { return nil }
-            switch m.output[2].substring?.lowercased() {
-            case "k"?, "thousand"?: return value * 1000
-            case let s? where s.hasPrefix("lakh") || s.hasPrefix("lac"): return value * 100_000
-            default: return value
-            }
-        }.max()
+        let lower = text.lowercased()
+        let marked = lower.matches(of: currencyRegex).filter { m in
+            let before = lower[..<m.range.lowerBound].suffix(14)
+            return !before.contains("bal") && !before.contains("limit")
+        }.compactMap { value(m: $0.output[1].substring, unit: $0.output[2].substring) }
+        if let first = marked.first { return first }
+        return text.matches(of: amountRegex).compactMap { value(m: $0.output[1].substring, unit: $0.output[2].substring) }.max()
+    }
+
+    static func value(m digits: Substring?, unit: Substring?) -> Decimal? {
+        guard let digits, let value = Decimal(string: digits.replacingOccurrences(of: ",", with: "")) else { return nil }
+        switch unit?.lowercased() {
+        case "k"?, "thousand"?: return value * 1000
+        case let s? where s.hasPrefix("lakh") || s.hasPrefix("lac"): return value * 100_000
+        default: return value
+        }
     }
 }
