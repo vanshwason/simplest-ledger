@@ -21,6 +21,7 @@ struct ContentView: View {
     @State private var editing: Entry?
     @State private var showStatement = false
     @State private var picker: PickerMode?
+    @FocusState private var inputFocused: Bool
 
     enum PickerMode: Identifiable { case csv, folder; var id: Self { self } }
 
@@ -34,17 +35,6 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section {
-                    HStack(alignment: .top) {
-                        TextField("e.g. 1500 spent on snacks", text: $input, axis: .vertical)
-                            .lineLimit(1...6)
-                        if busy { ProgressView() } else {
-                            Button("Add", action: add).bold()
-                                .disabled(input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                        }
-                    }
-                } footer: { Text("One entry per line. Anything unclear goes to Needs input.") }
-
                 Picker("Show", selection: $onlyNeedsInput) {
                     Text("All").tag(false)
                     Text("Needs input (\(store.entries.filter(\.needsInput).count))").tag(true)
@@ -57,7 +47,17 @@ struct ContentView: View {
                 }
                 .onDelete { offsets in store.delete(ids: offsets.map { shown[$0].id }) }
             }
-            .searchable(text: $search)
+            .overlay {
+                if store.entries.isEmpty {
+                    ContentUnavailableView("No entries yet", systemImage: "text.bubble",
+                        description: Text("Type what happened below, like “1500 spent on snacks”. One entry per line. Anything unclear goes to Needs input."))
+                }
+            }
+            .scrollDismissesKeyboard(.interactively)
+            // Search sits under the title so the bottom edge belongs to the input bar.
+            .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .automatic))
+            .safeAreaInset(edge: .bottom) { inputBar }
+            .onAppear { inputFocused = true }
             .navigationTitle("Ledger")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { Button("Statement") { showStatement = true } }
@@ -106,6 +106,28 @@ struct ContentView: View {
         }
     }
 
+    /// The app's one custom glass surface: a floating input bar with the view's single prominent action.
+    private var inputBar: some View {
+        GlassEffectContainer(spacing: 8) {
+            HStack(alignment: .bottom, spacing: 8) {
+                TextField("e.g. 1500 spent on snacks", text: $input, axis: .vertical)
+                    .lineLimit(1...6)
+                    .focused($inputFocused)
+                    .padding(.horizontal, 16).padding(.vertical, 12)
+                    .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 22))
+                Button(action: add) {
+                    if busy { ProgressView() } else { Image(systemName: "arrow.up").font(.body.bold()) }
+                }
+                .buttonStyle(.glassProminent)
+                .buttonBorderShape(.circle)
+                .controlSize(.large)
+                .disabled(busy || input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .accessibilityLabel("Add entry")
+            }
+            .padding(.horizontal).padding(.bottom, 8)
+        }
+    }
+
     private func add() {
         let lines = input.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         guard !lines.isEmpty else { return }
@@ -124,15 +146,17 @@ struct EntryRow: View {
             HStack {
                 Text(entry.kind.label + (entry.person.isEmpty ? "" : " · \(entry.person)")).font(.headline)
                 Spacer()
-                Text(entry.amount.map(rupees) ?? "?").font(.headline.monospacedDigit())
-                    .foregroundStyle(entry.kind.isIn ? .green : .primary)
+                // "+" marks money in; system green text on white is ~2.2:1, below the 3:1 bold minimum.
+                Text((entry.kind.isIn ? "+" : "") + (entry.amount.map(rupees) ?? "?")).font(.headline.monospacedDigit())
             }
             Text([entry.category, entry.method, entry.date.formatted(.dateTime.day().month().year().locale(english))]
                 .filter { !$0.isEmpty }.joined(separator: " · "))
                 .font(.caption).foregroundStyle(.secondary)
             Text(entry.raw).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             if entry.needsInput {
-                Label(entry.question, systemImage: "questionmark.circle").font(.caption).foregroundStyle(.orange)
+                Label { Text(entry.question) } icon: {
+                    Image(systemName: "questionmark.circle.fill").foregroundStyle(.orange)
+                }.font(.caption.weight(.medium))
             }
         }
     }
@@ -156,7 +180,9 @@ struct EditView: View {
             Form {
                 if entry.needsInput {
                     Section("Needs input") {
-                        Text(entry.question).foregroundStyle(.orange)
+                        Label { Text(entry.question) } icon: {
+                            Image(systemName: "questionmark.circle.fill").foregroundStyle(.orange)
+                        }
                         TextField("Your answer", text: $answer)
                         Button(busy ? "Reading…" : "Use answer", action: useAnswer).disabled(answer.isEmpty || busy)
                     }
@@ -212,19 +238,18 @@ struct StatementView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
+            // Two-axis scroll keeps the plain-text columns aligned instead of wrapping.
+            ScrollView([.vertical, .horizontal]) {
                 Text(text).font(.system(.footnote, design: .monospaced)).textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading).padding()
+                    .fixedSize().padding()
             }
-            .navigationTitle("Statement")
+            .navigationTitle(month.formatted(.dateTime.month(.wide).year().locale(english)))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }
                 ToolbarItem(placement: .primaryAction) { ShareLink(item: text) }
                 ToolbarItemGroup(placement: .bottomBar) {
                     Button { shift(-1) } label: { Label("Previous month", systemImage: "chevron.left") }
-                    Spacer()
-                    Text(month.formatted(.dateTime.month(.wide).year().locale(english)))
                     Spacer()
                     Button { shift(1) } label: { Label("Next month", systemImage: "chevron.right") }
                 }
