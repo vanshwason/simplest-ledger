@@ -41,7 +41,7 @@ Amount, category, payment method and person are filled in for you. Anything uncl
 - **No account, no sign-up, no tracking.** No analytics, no ads, no internet access in the app.
 - **Smart parsing runs locally** with Apple Intelligence (iPhone 15 Pro or newer); otherwise a built-in offline parser.
 - **Receipts are read on the phone** and not stored. Backups go only to a folder you choose.
-- **Open source.** Read every line.
+- **Public code.** Read every line of it right here.
 
 ## Install (free, ~5 min)
 
