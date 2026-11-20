@@ -97,6 +97,12 @@ struct ContentView: View {
                         .queryItems?.first(where: { $0.name == "text" })?.value else { return }
                 input = text; add()
             }
+            // Test hook for the CI simulator run: `-add "line1\nline2"` and `-statement`.
+            .task {
+                let args = ProcessInfo.processInfo.arguments
+                if let i = args.firstIndex(of: "-add"), i + 1 < args.count { input = args[i + 1]; add() }
+                showStatement = args.contains("-statement")
+            }
         }
     }
 
