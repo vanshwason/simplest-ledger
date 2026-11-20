@@ -16,7 +16,10 @@ final class Store {
     private let bookmarkKey = "backupBookmark"
 
     /// The ledger's one currency: the phone region's on first launch, then kept so a region change doesn't relabel it.
-    var currency = UserDefaults.standard.string(forKey: "currency") ?? Locale.current.currency?.identifier ?? "INR" {
+    /// A ledger from before currencies existed was always rupees, whatever the phone's region.
+    var currency = UserDefaults.standard.string(forKey: "currency")
+        ?? (FileManager.default.fileExists(atPath: URL.documentsDirectory.appending(path: "ledger.json").path) ? "INR" : nil)
+        ?? Locale.current.currency?.identifier ?? "INR" {
         didSet { UserDefaults.standard.set(currency, forKey: "currency"); Currency.current = Currency(code: currency) }
     }
 
