@@ -9,7 +9,7 @@ public enum ReceiptReader {
     static let skipLines = ["tax invoice", "invoice", "receipt", "bill", "welcome", "gst", "gstin", "fssai", "thank",
                             "order", "table", "date", "time", "phone", "ph ", "tel", "cashier", "transaction"]
     /// Money looks like "1,250.00", "₹500" or "Rs. 99". Bare long digit runs (phones, IDs) and years are ignored.
-    static let money = try! Regex(#"(₹|rs\.?|inr)?\s*(\d{1,3}(?:,\d{2,3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)"#).ignoresCase()
+    static let money = try! Regex(#"([₹$€£¥]|rs\.?|inr|usd|eur|gbp|aed)?\s*(\d{1,3}(?:,\d{2,3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)"#).ignoresCase()
 
     public static func sentence(from lines: [String]) -> String? {
         guard let total = total(in: lines) else { return nil }

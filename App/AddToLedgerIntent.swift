@@ -17,7 +17,7 @@ struct AddToLedgerIntent: AppIntent {
         guard let entry = await Store.shared.addFromMessage(text) else {
             return .result(dialog: "Already added, or the message was empty.")
         }
-        let amount = entry.amount.map(rupees) ?? "an amount to check"
+        let amount = entry.amount.map(money) ?? "an amount to check"
         return .result(dialog: "Added \(amount) · \(entry.category)\(entry.needsInput ? " (needs input)" : "")")
     }
 }

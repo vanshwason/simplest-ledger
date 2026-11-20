@@ -33,7 +33,7 @@ public enum Split {
     static let pronouns: Set<String> = ["he", "she", "him", "her", "they", "them", "usne", "unhone", "woh", "wo", "vo"]
     /// "paid 700", "gave me ₹700", "700 de diye": the amount someone else put in.
     static let contributionRegex = try! Regex(
-        #"(?:paid|gave|contributed|sent|transferred|diye|diya)\s+(?:me\s+|mujhe\s+|back\s+)?(?:₹|rs\.?\s*|inr\s*)?(\d[\d,]*(?:\.\d+)?)|(\d[\d,]*(?:\.\d+)?)\s*(?:₹|rs\.?|rupees|inr)?\s*(?:paid|gave|contributed|sent|transferred|de diye|de diya|diye|diya)\b"#
+        #"(?:paid|gave|contributed|sent|transferred|diye|diya)\s+(?:me\s+|mujhe\s+|back\s+)?(?:[₹$€£¥]|[a-z]{1,2}\$|rs\.?\s*|(?:inr|usd|eur|gbp|aed)\s*)?(\d[\d,]*(?:\.\d+)?)|(\d[\d,]*(?:\.\d+)?)\s*(?:[₹$€£¥]|rs\.?|rupees|dollars|euros|pounds|inr|usd|eur|gbp|aed)?\s*(?:paid|gave|contributed|sent|transferred|de diye|de diya|diye|diya)\b"#
     ).ignoresCase()
     static let people: Set<String> = ["people", "persons", "person", "friends", "friend", "others", "guys", "log", "logo", "logon", "dost"]
     static let filler: Set<String> = ["the", "a", "an", "of", "with", "between", "among", "and", "me", "my", "us", "it", "that",
@@ -106,7 +106,7 @@ public enum Split {
             var updated = target
             updated.splitTotal = total
             updated.amount = max(total - paid, 0)
-            updated.note = "Your share of \(rupees(total)), others paid \(rupees(paid))"
+            updated.note = "Your share of \(money(total)), others paid \(money(paid))"
             updated.question = updated.missingInfo()
             return (updated, [])
         }
@@ -116,7 +116,7 @@ public enum Split {
         var updated = target
         updated.splitTotal = total
         updated.amount = total - per * Decimal(request.others) // you absorb the rounding paisa
-        updated.note = "Your share of \(rupees(total)), split \(ways) ways" + (request.alreadyPaid ? ", others paid" : "")
+        updated.note = "Your share of \(money(total)), split \(ways) ways" + (request.alreadyPaid ? ", others paid" : "")
         updated.question = updated.missingInfo()
         guard !request.alreadyPaid else { return (updated, []) }
         let owed = (0..<request.others).map { i -> Entry in

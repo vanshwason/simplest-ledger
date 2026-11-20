@@ -15,7 +15,14 @@ final class Store {
     private let file = URL.documentsDirectory.appending(path: "ledger.json")
     private let bookmarkKey = "backupBookmark"
 
+    /// The ledger's one currency: the phone region's on first launch, then kept so a region change doesn't relabel it.
+    var currency = UserDefaults.standard.string(forKey: "currency") ?? Locale.current.currency?.identifier ?? "INR" {
+        didSet { UserDefaults.standard.set(currency, forKey: "currency"); Currency.current = Currency(code: currency) }
+    }
+
     init() {
+        UserDefaults.standard.set(currency, forKey: "currency")
+        Currency.current = Currency(code: currency)
         guard let data = try? Data(contentsOf: file) else { return }
         do {
             entries = try JSONDecoder().decode([Entry].self, from: data)

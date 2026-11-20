@@ -20,18 +20,18 @@ public enum Statement {
             guard !sums.isEmpty else { return }
             lines += ["", title]
             for (k, v) in sums.sorted(by: { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }) {
-                lines.append("  " + pad(k, 16) + rupees(v))
+                lines.append("  " + pad(k, 16) + money(v))
             }
         }
 
         lines.append("")
         for kind in Kind.allCases {
             let total = sum(inMonth.filter { $0.kind == kind })
-            if total != 0 { lines.append(pad(kind.label) + rupees(total)) }
+            if total != 0 { lines.append(pad(kind.label) + money(total)) }
         }
         let moneyIn = sum(inMonth.filter(\.kind.isIn)), moneyOut = sum(inMonth.filter { !$0.kind.isIn })
-        lines += ["", pad("Money in") + rupees(moneyIn), pad("Money out") + rupees(moneyOut),
-                  pad("Net") + rupees(moneyIn - moneyOut)]
+        lines += ["", pad("Money in") + money(moneyIn), pad("Money out") + money(moneyOut),
+                  pad("Net") + money(moneyIn - moneyOut)]
 
         breakdown("SPENDING BY CATEGORY", inMonth.filter { $0.kind == .expense }) { $0.category }
         breakdown("MONEY OUT BY PAYMENT METHOD", inMonth.filter { !$0.kind.isIn }) { $0.method.isEmpty ? "Not specified" : $0.method }
@@ -39,7 +39,7 @@ public enum Statement {
         let trips = Set(inMonth.compactMap(\.trip)).sorted()
         if !trips.isEmpty {
             lines += ["", "TRIPS (your spending)"]
-            for t in trips { lines.append("  " + pad(t, 16) + rupees(entries.spent(onTrip: t))) }
+            for t in trips { lines.append("  " + pad(t, 16) + money(entries.spent(onTrip: t))) }
         }
 
         // Balances run across all history up to the end of this month.
@@ -56,7 +56,7 @@ public enum Statement {
         if !people.isEmpty {
             lines += ["", "PEOPLE (balance at month end)"]
             for (name, v) in people {
-                lines.append(v > 0 ? "  \(name) owes you \(rupees(v))" : "  You owe \(name) \(rupees(-v))")
+                lines.append(v > 0 ? "  \(name) owes you \(money(v))" : "  You owe \(name) \(money(-v))")
             }
         }
 
@@ -70,7 +70,7 @@ public enum Statement {
         lines += ["", "ENTRIES"]
         for e in inMonth {
             let details = [e.category, e.method, e.person].filter { !$0.isEmpty }.joined(separator: ", ")
-            lines.append("  \(fmt.string(from: e.date))  \(pad(e.kind.label, 10))\(pad(e.amount.map(rupees) ?? "?", 11))\(details)")
+            lines.append("  \(fmt.string(from: e.date))  \(pad(e.kind.label, 10))\(pad(e.amount.map(money) ?? "?", 11))\(details)")
         }
         return lines.joined(separator: "\n")
     }

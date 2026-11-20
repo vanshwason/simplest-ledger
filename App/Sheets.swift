@@ -209,7 +209,7 @@ struct EditView: View {
                 }
                 Section {
                     HStack(spacing: 4) {
-                        Text("₹").font(.largeTitle.bold()).foregroundStyle(.secondary)
+                        Text(Currency.current.symbol).font(.largeTitle.bold()).foregroundStyle(.secondary)
                         TextField("0", text: $amountText)
                             .font(.largeTitle.bold()).keyboardType(.decimalPad).focused($amountFocused)
                             .accessibilityLabel("Amount")
@@ -217,7 +217,7 @@ struct EditView: View {
                     Picker("Type", selection: $entry.kind) {
                         ForEach(Kind.allCases, id: \.self) { Text($0.label).tag($0) }
                     }
-                    if let total = entry.splitTotal { LabeledContent("Your share of", value: rupees(total)) }
+                    if let total = entry.splitTotal { LabeledContent("Your share of", value: money(total)) }
                 }
                 Section("Category") { CategoryGrid(selection: $entry.category) }
                 if entry.kind.needsPerson || !entry.person.isEmpty {
@@ -295,7 +295,7 @@ struct SplitSheet: View {
                 Section {
                     Picker("How", selection: $mode.animation(.snappy)) {
                         Text("Split equally").tag(Mode.equal)
-                        Text("They paid ₹…").tag(Mode.paidAmount)
+                        Text("They paid \(Currency.current.symbol)…").tag(Mode.paidAmount)
                     }
                     .pickerStyle(.segmented)
                 }
@@ -317,7 +317,7 @@ struct SplitSheet: View {
                 } else {
                     Section("They paid") {
                         HStack(spacing: 4) {
-                            Text("₹").font(.title2.bold()).foregroundStyle(.secondary)
+                            Text(Currency.current.symbol).font(.title2.bold()).foregroundStyle(.secondary)
                             TextField("0", text: $paidText).font(.title2.bold()).keyboardType(.decimalPad)
                                 .accessibilityLabel("Amount they paid")
                         }
@@ -325,12 +325,12 @@ struct SplitSheet: View {
                 }
                 Section {
                     LabeledContent("Your share") {
-                        Text(rupees(result.updated.amount ?? 0)).font(.title2.bold()).foregroundStyle(.primary)
+                        Text(money(result.updated.amount ?? 0)).font(.title2.bold()).foregroundStyle(.primary)
                     }
                     if mode == .equal && !current.alreadyPaid {
-                        LabeledContent("Each owes you", value: rupees(result.owed.first?.amount ?? 0))
+                        LabeledContent("Each owes you", value: money(result.owed.first?.amount ?? 0))
                     }
-                } footer: { Text("Total bill \(rupees(result.updated.splitTotal ?? 0))") }
+                } footer: { Text("Total bill \(money(result.updated.splitTotal ?? 0))") }
                 .contentTransition(.numericText()) // shares roll as you change the choices
                 .animation(.snappy, value: current)
             }

@@ -94,9 +94,9 @@ public enum RuleParser {
         return entry
     }
 
-    static let currencyRegex = try! Regex(#"(?:₹|\brs\.?|\binr)\s*(\d[\d,]*(?:\.\d+)?)\s*(k|thousand|lakhs?|lacs?)?\b"#).ignoresCase()
+    static var currencyRegex: Regex<AnyRegexOutput> { Currency.current.amountRegex }
 
-    /// The amount in the text. A ₹/Rs/INR-marked amount wins, skipping balances and limits, so a bank SMS like
+    /// The amount in the text. An amount marked with the ledger's currency (₹/Rs/INR for rupees) wins, skipping balances and limits, so a bank SMS like
     /// "Rs 500 debited from A/c XX1234 … Avl Bal Rs 25,340" gives 500. Otherwise the largest number, so
     /// "2 samosa 40" gives 40. Understands 5k, 1.5 lakh, 1,500.
     public static func amount(in text: String) -> Decimal? {
@@ -106,7 +106,7 @@ public enum RuleParser {
             return !before.contains("bal") && !before.contains("limit") && !before.contains("lmt")
         }.compactMap { value(m: $0.output[1].substring, unit: $0.output[2].substring) }
         if let first = marked.first { return first }
-        // "USD 12.99 spent…": a foreign amount isn't rupees; leave it empty so Needs input asks.
+        // "USD 12.99 spent…" in a rupee ledger: not our currency; leave it empty so Needs input asks.
         if lower.contains(foreignRegex) { return nil }
         return lower.matches(of: amountRegex).compactMap { m -> Decimal? in
             let digits = m.output[1].substring ?? ""
@@ -117,10 +117,13 @@ public enum RuleParser {
         }.max()
     }
 
-    static let foreignRegex = try! Regex(#"(?:\busd|\$|\beur|€|\bgbp|£)\s*\d"#).ignoresCase()
+    public static var foreignRegex: Regex<AnyRegexOutput> { Currency.current.foreignRegex }
 
     static func value(m digits: Substring?, unit: Substring?) -> Decimal? {
-        guard let digits, let value = Decimal(string: digits.replacingOccurrences(of: ",", with: "")) else { return nil }
+        // "12,50" is a decimal comma (euro style): no thousands grouping ends in two digits.
+        let euro = digits?.wholeMatch(of: #/\d{1,3},\d{2}/#) != nil
+        guard let digits, let value = Decimal(string: euro ? digits.replacingOccurrences(of: ",", with: ".")
+                                                          : digits.replacingOccurrences(of: ",", with: "")) else { return nil }
         switch unit?.lowercased() {
         case "k"?, "thousand"?: return value * 1000
         case let s? where s.hasPrefix("lakh") || s.hasPrefix("lac"): return value * 100_000

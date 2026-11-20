@@ -91,7 +91,7 @@ struct ContentView: View {
                 Text("🧳").font(.title3)
                 VStack(alignment: .leading) {
                     Text(trip).font(.headline)
-                    Text("\(rupees(store.entries.spent(onTrip: trip))) spent · new entries go here")
+                    Text("\(money(store.entries.spent(onTrip: trip))) spent · new entries go here")
                         .font(.caption).foregroundStyle(.secondary)
                         .contentTransition(.numericText())
                 }
@@ -164,6 +164,7 @@ struct ContentView: View {
                         .transition(.opacity)
                 }
             }
+            .id(store.currency) // amounts read the currency directly, so redraw them when it changes
             .environment(\.editMode, $editMode)
             .sensoryFeedback(.success, trigger: added)
             .sensoryFeedback(.warning, trigger: flagged)
@@ -216,6 +217,11 @@ struct ContentView: View {
                             Label(store.backupFolderName.map { "Backup folder: \($0)" } ?? "Choose backup folder",
                                   systemImage: "externaldrive")
                         }
+                        Picker(selection: Binding(get: { store.currency }, set: { store.currency = $0 })) {
+                            ForEach(Currency.common.contains(store.currency) ? Currency.common : [store.currency] + Currency.common,
+                                    id: \.self) { Text("\(Currency(code: $0).symbol)  \($0)").tag($0) }
+                        } label: { Label("Currency: \(store.currency)", systemImage: "banknote") }
+                        .pickerStyle(.menu)
                     } label: { Image(systemName: "ellipsis.circle") }
                     }
                 }
@@ -499,7 +505,7 @@ struct EntryRow: View {
                 Text(entry.kind.label + (entry.person.isEmpty ? "" : " · \(entry.person)")).font(.headline)
                 Spacer()
                 // "+" marks money in; system green text on white is ~2.2:1, below the 3:1 bold minimum.
-                Text((entry.kind.isIn ? "+" : "") + (entry.amount.map(rupees) ?? "?")).font(.headline.monospacedDigit())
+                Text((entry.kind.isIn ? "+" : "") + (entry.amount.map(money) ?? "?")).font(.headline.monospacedDigit())
                     .contentTransition(.numericText()) // e.g. ₹1,200 rolls down to ₹300 after a split
             }
             Text([entry.source == "sms" ? "📩 SMS" : "", entry.category, entry.method, entry.trip.map { "🧳 \($0)" } ?? "",

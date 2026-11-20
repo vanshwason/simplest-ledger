@@ -71,18 +71,3 @@ public struct Entry: Codable, Identifiable, Equatable, Sendable {
     }
 }
 
-/// Indian-style rupees: 150000 -> "₹1,50,000", 1500.5 -> "₹1,500.50".
-public func rupees(_ value: Decimal) -> String {
-    var v = value, r = Decimal()
-    NSDecimalRound(&r, &v, 2, .plain)
-    let negative = r < 0
-    let parts = NSDecimalNumber(decimal: negative ? -r : r).stringValue.split(separator: ".", maxSplits: 1)
-    var int = String(parts[0]), grouped = ""
-    if int.count > 3 {
-        grouped = "," + int.suffix(3); int = String(int.dropLast(3))
-        while int.count > 2 { grouped = "," + int.suffix(2) + grouped; int = String(int.dropLast(2)) }
-    }
-    var frac = parts.count > 1 ? String(parts[1]) : ""
-    if frac.count == 1 { frac += "0" }
-    return (negative ? "-" : "") + "₹" + int + grouped + (frac.isEmpty ? "" : "." + frac)
-}

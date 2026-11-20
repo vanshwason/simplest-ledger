@@ -42,9 +42,27 @@ final class LedgerCoreTests: XCTestCase {
     }
 
     func testRupees() {
-        XCTAssertEqual(rupees(150_000), "₹1,50,000")
-        XCTAssertEqual(rupees(Decimal(string: "1500.5")!), "₹1,500.50")
-        XCTAssertEqual(rupees(-200), "-₹200")
+        XCTAssertEqual(money(150_000), "₹1,50,000")
+        XCTAssertEqual(money(Decimal(string: "1500.5")!), "₹1,500.50")
+        XCTAssertEqual(money(-200), "-₹200")
+    }
+
+    /// One currency per ledger, no conversion: the others' amounts are left for you to fill in.
+    func testOtherCurrencies() {
+        defer { Currency.current = Currency(code: "INR") }
+        Currency.current = Currency(code: "USD")
+        XCTAssertEqual(money(150_000), "$150,000")
+        XCTAssertEqual(RuleParser.amount(in: "You made a $25.00 purchase with card ending 4321. Avl bal $1,200"), 25)
+        XCTAssertNil(RuleParser.amount(in: "Rs 500 debited from A/c XX1234"))
+        XCTAssertNil(MessageFilter.ignoreReason("Chase: You made a $42.10 transaction with your debit card at TARGET"))
+        Currency.current = Currency(code: "EUR")
+        XCTAssertEqual(RuleParser.amount(in: "€12,50 spent at cafe"), Decimal(string: "12.50"))
+        XCTAssertNil(RuleParser.amount(in: "USD 12.99 spent at NETFLIX"))
+        Currency.current = Currency(code: "AUD")
+        XCTAssertEqual(RuleParser.amount(in: "$30 spent at Woolworths"), 30) // a plain $ is ours, not USD
+        Currency.current = Currency(code: "AED")
+        XCTAssertEqual(money(500), "AED 500")
+        XCTAssertEqual(RuleParser.amount(in: "AED 75.50 debited from your account"), Decimal(string: "75.50"))
     }
 
     func testStatement() {
