@@ -3,65 +3,69 @@
 <h1 align="center">Simplest Ledger</h1>
 
 <p align="center"><b>A private expense tracker for iPhone. Type it like a message.</b><br>
-No account. No internet. No ads. Everything stays on your phone.</p>
+No account · No internet · No ads · Everything stays on your phone</p>
 
-<p align="center">
-<img src="docs/screenshots/list.png" width="200" alt="Expense list">
-<img src="docs/screenshots/split.png" width="200" alt="Split a bill">
-<img src="docs/screenshots/trip.png" width="200" alt="Trip mode">
-<img src="docs/screenshots/statement.png" width="200" alt="Monthly statement">
-</p>
+<p align="center"><img src="docs/screenshots/list.png" width="300" alt="Simplest Ledger expense list"></p>
 
-## Just type
+<p align="center"><a href="../../releases/latest"><b>⬇️ Download the app (free)</b></a></p>
 
-```
-1500 snacks via UPI
-lent 2000 to Rahul
-split the dinner with 3 people
-going on goa trip
-```
+---
 
-Amount, category, payment method and person are filled in for you. Anything unclear goes to **Needs input**, where you answer with a tap.
+<table>
+<tr>
+<td width="300"><img src="docs/screenshots/typing.png" width="280" alt="Typing an expense"></td>
+<td><h3>✍️ Just type</h3>
+<code>dinner 850 with friends via UPI</code><br>
+Amount, category and payment method are filled in for you. English, Hindi or Hinglish.</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/sms-entry.png" width="280" alt="Expense added from a bank SMS"></td>
+<td><h3>📩 Bank SMS, added for you</h3>
+A UPI or card debit arrives and it's in your ledger, tagged <b>SMS</b>. OTPs, offers and failed payments are skipped. One-time setup inside the app.</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/split.png" width="280" alt="Split confirmation"><br><img src="docs/screenshots/after-split.png" width="280" alt="After the split"></td>
+<td><h3>👥 Edit old entries by typing</h3>
+<code>split the outing with Rahul, Amit and Neha</code><br>
+Finds the ₹1,200 outing, asks once, then it becomes your ₹300 share and each friend owes you ₹300.</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/edit.png" width="280" alt="Fix an entry by tapping"></td>
+<td><h3>❓ Unclear? Just tap</h3>
+Anything the app isn't sure about goes to <b>Needs input</b>. Answer with one tap on an icon.</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/trip.png" width="280" alt="Trip mode"></td>
+<td><h3>🧳 Trips</h3>
+<code>going on goa trip</code>: everything after is grouped, with a running total.</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/statement.png" width="280" alt="Monthly statement"></td>
+<td><h3>📊 Monthly statement</h3>
+Plain text: by category, by payment method, who owes whom. Copy or share.</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/dark.png" width="280" alt="Dark mode"></td>
+<td><h3>🌗 Also</h3>
+🧾 Scan receipts and UPI screenshots · 🤝 Lend and borrow · 🔍 Search · ⬇️ CSV backup to iCloud or Google Drive · Dark mode</td>
+</tr>
+</table>
 
-## Features
+## 🔒 Private by design
 
-- 🧾 **Scan receipts** and UPI screenshots
-- 📩 **Bank SMS**: debits and credits added automatically (one-time Shortcuts setup, in the app)
-- 👥 **Split bills**: "he paid 700", "split with 3 people"; tracks who owes you
-- 🤝 **Lend and borrow**, with running balances
-- 🧳 **Trips**: group a trip's spending, see the total
-- 📊 **Monthly statement** in plain text: by category, by payment method, who owes whom
-- 🗂️ 20+ categories with icons; Dining Out, Food Delivery, Groceries, Utilities, Online Shopping…
-- 🌗 Dark mode, Liquid Glass design, Hindi and Hinglish input with English output
-- ⬇️ CSV export/import, auto-backup to an iCloud Drive or Google Drive folder you pick
+- Everything is stored **on your iPhone**. No servers, no cloud database.
+- **No account, no sign-up, no tracking, no ads.** The app never connects to the internet.
+- Smart parsing runs **on the device** (Apple Intelligence on iPhone 15 Pro+, or a built-in offline parser).
+- Receipts are read on the phone and never saved. Backups go only to a folder you pick.
 
-## Private and secure by design
-
-- **On-device only.** Your entries live in the app on your iPhone. No server, no cloud database.
-- **No account, no sign-up, no tracking.** No analytics, no ads, no internet access in the app.
-- **Smart parsing runs locally** with Apple Intelligence (iPhone 15 Pro or newer); otherwise a built-in offline parser.
-- **Receipts are read on the phone** and not stored. Backups go only to a folder you choose.
-- **Public code.** Read every line of it right here.
-
-## Install (free, ~5 min)
+## 📲 Install (free)
 
 1. Download **SimplestLedger.ipa** from [Releases](../../releases/latest).
-2. Install it with [Sideloadly](https://sideloadly.io) (Windows/Mac) and a free Apple ID.
-3. On the iPhone: Settings → General → VPN & Device Management → **Trust**. Turn on **Developer Mode** if asked.
+2. Install with [Sideloadly](https://sideloadly.io) and a free Apple ID.
+3. iPhone: Settings → General → VPN & Device Management → **Trust**.
 
-Free Apple IDs re-sign every 7 days: repeat step 2 and your data stays.
+Re-install every 7 days (free Apple ID limit). Your data stays. Requires iOS 26.
 
-<details>
-<summary>More screenshots</summary>
-<p>
-<img src="docs/screenshots/edit.png" width="200" alt="Edit by tapping">
-<img src="docs/screenshots/bank-sms.png" width="200" alt="Bank SMS setup">
-<img src="docs/screenshots/dark.png" width="200" alt="Dark mode">
-</p>
-</details>
+---
 
-<details>
-<summary>Build from source</summary>
-
-SwiftUI, iOS 26, no third-party dependencies. Every push builds an unsigned IPA on GitHub Actions (`.github/workflows/build.yml`) using [XcodeGen](https://github.com/yonaskolb/XcodeGen). Parsing logic lives in `LedgerCore` with tests: `swift test --package-path LedgerCore`.
-</details>
+<sub>Free for personal, non-commercial use under the [PolyForm Noncommercial License](LICENSE.md). Ideas and pull requests welcome: see [CONTRIBUTING](CONTRIBUTING.md).</sub>
