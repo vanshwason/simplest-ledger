@@ -13,6 +13,7 @@ public enum RuleParser {
         ("Utilities", "💡", ["electricity", "bijli", "wifi", "internet", "broadband", "water", "gas", "cylinder", "recharge",
                             "dth", "postpaid", "airtel", "jio", "bill"]),
         ("Rent", "🏠", ["rent", "kiraya", "maintenance"]),
+        ("ATM Cash", "🏧", ["atm", "wdl", "withdrawal", "withdrawn"]),
         ("Transport", "🚕", ["uber", "ola", "rapido", "auto", "cab", "taxi", "metro", "bus", "petrol", "diesel", "fuel",
                             "parking", "toll", "fastag"]),
         ("Online Shopping", "📦", ["amazon", "flipkart", "myntra", "meesho", "ajio", "nykaa", "online"]),
@@ -35,9 +36,8 @@ public enum RuleParser {
         categories.first { $0.name == category }?.emoji ?? extraEmoji[category] ?? "🏷️"
     }
 
+    /// Credit and Debit Card are decided in `parse` (they need "card" too: SMS say "has a debit" or "credited").
     public static let methods: [(name: String, words: [String])] = [
-        ("Credit Card", ["credit", "cc"]),
-        ("Debit Card", ["debit"]),
         ("UPI", ["upi", "gpay", "googlepay", "phonepe", "paytm", "bhim"]),
         ("Cash", ["cash"]),
         ("Bank Transfer", ["neft", "imps", "rtgs", "bank", "transfer"]),
@@ -51,8 +51,11 @@ public enum RuleParser {
     static let amountRegex = try! Regex(#"(\d[\d,]*(?:\.\d+)?)\s*(k|thousand|lakhs?|lacs?)?\b"#).ignoresCase()
 
     public static func parse(_ text: String, now: Date = Date(), calendar: Calendar = .current) -> Entry {
-        let words = text.lowercased().split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init)
+        let lower = text.lowercased()
+        let words = lower.split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init)
         func has(_ list: [String]) -> Bool { words.contains { list.contains($0) } }
+        // Bank SMS shorthand ("A/c XX12 Dr Rs 500", "Cr Rs 1,000") only counts in bank-style text.
+        let bankText = lower.contains("a/c") || lower.contains("acct") || lower.contains("account")
 
         var kind: Kind
         if has(["returned", "repaid", "wapas", "back"]) {
@@ -61,9 +64,10 @@ public enum RuleParser {
             kind = .lent
         } else if has(["borrowed", "borrow"]) {
             kind = .borrowed
-        } else if has(["debited", "spent", "deducted", "withdrawn"]) {
+        } else if has(["debited", "spent", "deducted", "withdrawn"]) || (bankText && has(["dr"])) {
             kind = .expense // bank SMS often says "debited from you … credited to them"
-        } else if has(["received", "got", "salary", "income", "credited", "earned", "refund", "cashback"]) {
+        } else if has(["received", "got", "salary", "income", "credited", "earned", "refund", "refunded", "cashback",
+                       "reversed", "reversal"]) || (bankText && has(["cr"])) {
             kind = .income
         } else {
             kind = .expense
@@ -73,7 +77,9 @@ public enum RuleParser {
         if kind.needsPerson { category = "Loan" }
         if kind == .income && category == "Other" { category = "Income" }
 
-        let method = methods.first { m in has(m.words) }?.name ?? ""
+        let method = has(["cc"]) || (has(["credit"]) && has(["card"])) ? "Credit Card"
+            : has(["debit"]) && has(["card"]) ? "Debit Card"
+            : methods.first { m in has(m.words) }?.name ?? ""
 
         var person = ""
         if kind.needsPerson, let i = words.firstIndex(where: { ["to", "from", "with"].contains($0) }) {
@@ -96,11 +102,21 @@ public enum RuleParser {
         let lower = text.lowercased()
         let marked = lower.matches(of: currencyRegex).filter { m in
             let before = lower[..<m.range.lowerBound].suffix(14)
-            return !before.contains("bal") && !before.contains("limit")
+            return !before.contains("bal") && !before.contains("limit") && !before.contains("lmt")
         }.compactMap { value(m: $0.output[1].substring, unit: $0.output[2].substring) }
         if let first = marked.first { return first }
-        return text.matches(of: amountRegex).compactMap { value(m: $0.output[1].substring, unit: $0.output[2].substring) }.max()
+        // "USD 12.99 spent…": a foreign amount isn't rupees; leave it empty so Needs input asks.
+        if lower.contains(foreignRegex) { return nil }
+        return lower.matches(of: amountRegex).compactMap { m -> Decimal? in
+            let digits = m.output[1].substring ?? ""
+            // Skip account masks (XX1234, *4821) and long IDs, phone and reference numbers.
+            if let prev = lower[..<m.range.lowerBound].last, prev.isLetter || prev == "*" { return nil }
+            if !digits.contains("."), digits.filter(\.isNumber).count >= 7 { return nil }
+            return value(m: digits, unit: m.output[2].substring)
+        }.max()
     }
+
+    static let foreignRegex = try! Regex(#"(?:\busd|\$|\beur|€|\bgbp|£)\s*\d"#).ignoresCase()
 
     static func value(m digits: Substring?, unit: Substring?) -> Decimal? {
         guard let digits, let value = Decimal(string: digits.replacingOccurrences(of: ",", with: "")) else { return nil }
