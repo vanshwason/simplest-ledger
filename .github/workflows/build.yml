@@ -60,6 +60,15 @@ jobs:
           xcrun simctl launch "$DEVICE" app.simple.ledger -no-keyboard -add "split the outing with Rahul, Amit and Neha" && sleep 6
           xcrun simctl io "$DEVICE" screenshot shots/4-split.png
           xcrun simctl terminate "$DEVICE" app.simple.ledger
+          xcrun simctl launch "$DEVICE" app.simple.ledger -prefill "dinner 850 with friends via UPI" && sleep 6
+          xcrun simctl io "$DEVICE" screenshot shots/10-typing.png
+          xcrun simctl terminate "$DEVICE" app.simple.ledger
+          xcrun simctl launch "$DEVICE" app.simple.ledger -no-keyboard -sms "Rs.640.00 debited from A/c XX4821 on 20-11-26 to VPA blinkit@ybl. UPI Ref 631233445566. -HDFC Bank" && sleep 6
+          xcrun simctl io "$DEVICE" screenshot shots/11-sms-entry.png
+          xcrun simctl terminate "$DEVICE" app.simple.ledger
+          xcrun simctl launch "$DEVICE" app.simple.ledger -no-keyboard -auto-split -add "split the outing with Rahul, Amit and Neha" && sleep 6
+          xcrun simctl io "$DEVICE" screenshot shots/12-after-split.png
+          xcrun simctl terminate "$DEVICE" app.simple.ledger
           xcrun simctl launch "$DEVICE" app.simple.ledger -no-keyboard -add "all entries were test entries please delete" && sleep 6
           xcrun simctl io "$DEVICE" screenshot shots/5-delete.png
           xcrun simctl terminate "$DEVICE" app.simple.ledger

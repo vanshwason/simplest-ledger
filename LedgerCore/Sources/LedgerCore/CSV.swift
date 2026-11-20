@@ -8,7 +8,7 @@ public enum CSV {
     }
 
     static let header = ["id", "date", "amount", "kind", "category", "method", "person", "note", "question", "raw",
-                         "split_total", "split_of", "trip"]
+                         "split_total", "split_of", "trip", "source"]
 
     public static func encode(_ entries: [Entry]) -> String {
         let iso = ISO8601DateFormatter()
@@ -16,7 +16,7 @@ public enum CSV {
         for e in entries {
             let fields = [e.id.uuidString, iso.string(from: e.date), e.amount.map { "\($0)" } ?? "", e.kind.rawValue,
                           e.category, e.method, e.person, e.note, e.question, e.raw,
-                          e.splitTotal.map { "\($0)" } ?? "", e.splitOf?.uuidString ?? "", e.trip ?? ""]
+                          e.splitTotal.map { "\($0)" } ?? "", e.splitOf?.uuidString ?? "", e.trip ?? "", e.source ?? ""]
             out += fields.map(quote).joined(separator: ",") + "\n"
         }
         return out
@@ -43,6 +43,7 @@ public enum CSV {
             entry.splitTotal = Decimal(string: value("split_total"))
             entry.splitOf = UUID(uuidString: value("split_of"))
             entry.trip = value("trip").isEmpty ? nil : value("trip")
+            entry.source = value("source").isEmpty ? nil : value("source")
             return entry
         }
     }

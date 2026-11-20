@@ -42,6 +42,8 @@ public struct Entry: Codable, Identifiable, Equatable, Sendable {
     public var splitOf: UUID?
     /// Trip the entry belongs to, e.g. "Goa". Optional so ledgers saved before trips still load.
     public var trip: String?
+    /// Where it came from when not typed: "sms" for the bank SMS automation.
+    public var source: String?
 
     public var needsInput: Bool { !question.isEmpty }
 

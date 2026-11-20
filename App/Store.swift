@@ -55,7 +55,8 @@ final class Store {
         let clean = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !clean.isEmpty, MessageFilter.ignoreReason(clean) == nil, // OTPs, failed or scheduled payments, offers…
               !entries.contains(where: { $0.raw == clean && Date().timeIntervalSince($0.date) < 86_400 }) else { return nil }
-        let entry = await SmartParser.parse(clean)
+        var entry = await SmartParser.parse(clean)
+        entry.source = "sms"
         add(entry)
         lastMessageAt = Date()
         return entry

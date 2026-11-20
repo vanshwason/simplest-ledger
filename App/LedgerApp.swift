@@ -268,6 +268,8 @@ struct ContentView: View {
                 showStatement = args.contains("-statement")
                 showSMS = args.contains("-sms-setup")
                 if args.contains("-edit-first") { editing = store.entries.first(where: \.needsInput) ?? store.entries.first }
+                if let i = args.firstIndex(of: "-sms"), i + 1 < args.count { _ = await store.addFromMessage(args[i + 1]) }
+                if let i = args.firstIndex(of: "-prefill"), i + 1 < args.count { input = args[i + 1] }
             }
         }
     }
@@ -417,7 +419,11 @@ struct ContentView: View {
         guard let request = Split.parse(line) else { return await SmartParser.parse(line) }
         // A split line edits an earlier expense, or adds the bill first when it names a new amount.
         if let target = Split.target(for: request, in: store.entries) {
-            splitting = PendingSplit(request: request, target: target)
+            if ProcessInfo.processInfo.arguments.contains("-auto-split") { // CI screenshot of the result
+                animate { store.applySplit(request, to: target) }
+            } else {
+                splitting = PendingSplit(request: request, target: target)
+            }
         } else if request.amount != nil {
             var bill = await SmartParser.parse(line)
             bill.kind = .expense; bill.person = ""
@@ -483,7 +489,7 @@ struct EntryRow: View {
                 Text((entry.kind.isIn ? "+" : "") + (entry.amount.map(rupees) ?? "?")).font(.headline.monospacedDigit())
                     .contentTransition(.numericText()) // e.g. ₹1,200 rolls down to ₹300 after a split
             }
-            Text([entry.category, entry.method, entry.trip.map { "🧳 \($0)" } ?? "",
+            Text([entry.source == "sms" ? "📩 SMS" : "", entry.category, entry.method, entry.trip.map { "🧳 \($0)" } ?? "",
                   entry.date.formatted(.dateTime.day().month().year().locale(english))]
                 .filter { !$0.isEmpty }.joined(separator: " · "))
                 .font(.caption).foregroundStyle(.secondary)
