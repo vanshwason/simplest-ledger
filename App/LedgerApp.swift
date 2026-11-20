@@ -208,6 +208,13 @@ struct SplitSheet: View {
         NavigationStack {
             Form {
                 Section("Expense") { EntryRow(entry: target) }
+                Section("Result") {
+                    LabeledContent("Total bill", value: rupees(result.updated.splitTotal ?? 0))
+                    LabeledContent("Your share", value: rupees(result.updated.amount ?? 0))
+                    if !current.alreadyPaid {
+                        LabeledContent("Each person owes you", value: rupees(result.owed.first?.amount ?? 0))
+                    }
+                }
                 Section {
                     Stepper("Split with \(current.others) other\(current.others == 1 ? "" : "s")", value: $request.others, in: 1...20)
                     TextField("Names (optional), e.g. Rahul, Amit", text: $namesText)
@@ -215,13 +222,6 @@ struct SplitSheet: View {
                 } footer: {
                     Text(request.alreadyPaid ? "Only your share stays as spending."
                          : "Each person gets a Lent entry, so the statement shows who owes you.")
-                }
-                Section("Result") {
-                    LabeledContent("Total bill", value: rupees(result.updated.splitTotal ?? 0))
-                    LabeledContent("Your share", value: rupees(result.updated.amount ?? 0))
-                    if !current.alreadyPaid {
-                        LabeledContent("Each person owes you", value: rupees(result.owed.first?.amount ?? 0))
-                    }
                 }
             }
             .navigationTitle("Split Expense")

@@ -12,7 +12,7 @@ public enum RuleParser {
         ("Bills", ["electricity", "bijli", "recharge", "wifi", "internet", "broadband", "bill", "emi", "insurance"]),
         ("Shopping", ["amazon", "flipkart", "myntra", "clothes", "shoes", "shirt", "shopping", "meesho"]),
         ("Health", ["medicine", "dawai", "doctor", "hospital", "pharmacy", "chemist", "gym"]),
-        ("Entertainment", ["movie", "netflix", "spotify", "prime", "hotstar", "game", "party", "concert"]),
+        ("Entertainment", ["movie", "netflix", "spotify", "prime", "hotstar", "game", "party", "concert", "outing"]),
         ("Travel", ["flight", "hotel", "train", "irctc", "trip", "travel"]),
         ("Education", ["course", "book", "fees", "tuition", "school", "college"]),
         ("Salary", ["salary", "paycheck", "stipend"]),
