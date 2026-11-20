@@ -31,9 +31,24 @@ struct ContentView: View {
     @State private var editMode: EditMode = .inactive
     @State private var selection = Set<UUID>()
     @State private var confirmDelete = false
+    // Haptic and symbol-bounce triggers.
+    @State private var added = 0
+    @State private var flagged = 0
+    @State private var deleted = 0
     @FocusState private var inputFocused: Bool
+    @Namespace private var zoom
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     enum PickerMode: Identifiable { case csv, folder; var id: Self { self } }
+
+    /// One motion style for the whole app: short and springy, or a plain fade with Reduce Motion on.
+    private func animate(_ change: () -> Void) {
+        withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : .snappy(duration: 0.35), change)
+    }
+
+    private var barTransition: AnyTransition {
+        reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity)
+    }
 
     private var shown: [Entry] {
         store.entries.filter { e in
@@ -45,7 +60,7 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             List(selection: $selection) {
-                Picker("Show", selection: $onlyNeedsInput) {
+                Picker("Show", selection: $onlyNeedsInput.animation(reduceMotion ? .easeInOut(duration: 0.2) : .snappy)) {
                     Text("All").tag(false)
                     Text("Needs input (\(store.entries.filter(\.needsInput).count))").tag(true)
                 }
@@ -57,9 +72,10 @@ struct ContentView: View {
                         if editMode.isEditing { EntryRow(entry: e) } // tap selects while selecting
                         else { Button { editing = e } label: { EntryRow(entry: e) }.tint(.primary) }
                     }
+                        .matchedTransitionSource(id: e.id, in: zoom) // the edit sheet zooms out of this row
                         .contextMenu { // long-press actions, as in Chat Backup Browser's mobile UI
                             Button { editing = e } label: { Label("Edit", systemImage: "pencil") }
-                            Button { selection = [e.id]; editMode = .active } label: {
+                            Button { animate { selection = [e.id]; editMode = .active } } label: {
                                 Label("Select", systemImage: "checkmark.circle")
                             }
                             if e.kind == .expense {
@@ -68,7 +84,9 @@ struct ContentView: View {
                                 }
                             }
                             Button { UIPasteboard.general.string = e.raw } label: { Label("Copy Text", systemImage: "doc.on.doc") }
-                            Button(role: .destructive) { store.delete(ids: [e.id]) } label: { Label("Delete", systemImage: "trash") }
+                            Button(role: .destructive) { animate { store.delete(ids: [e.id]) }; deleted += 1 } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
                         }
                 }
                 // Swipe-to-delete off while selecting, so rows show only the checkmark.
@@ -79,13 +97,20 @@ struct ContentView: View {
                 if store.entries.isEmpty {
                     ContentUnavailableView("No entries yet", systemImage: "text.bubble",
                         description: Text("Type what happened below, like “1500 spent on snacks”. One entry per line. Anything unclear goes to Needs input."))
+                        .transition(.opacity)
                 }
             }
+            .sensoryFeedback(.success, trigger: added)
+            .sensoryFeedback(.warning, trigger: flagged)
+            .sensoryFeedback(.impact(weight: .medium), trigger: deleted)
+            .sensoryFeedback(.selection, trigger: selection)
             .scrollDismissesKeyboard(.interactively)
             // Search sits under the title so the bottom edge belongs to the input bar.
             .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .automatic))
             .safeAreaBar(edge: .bottom) { // safeAreaBar adds the scroll edge fade under the glass
-                if editMode.isEditing { deleteBar } else { inputBar }
+                ZStack { // the input bar and delete bar slide past each other
+                    if editMode.isEditing { deleteBar.transition(barTransition) } else { inputBar.transition(barTransition) }
+                }
             }
             .onAppear { inputFocused = true }
             .onChange(of: showStatement || editing != nil || picker != nil || splitting != nil || editMode.isEditing) { _, open in
@@ -96,17 +121,19 @@ struct ContentView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     if editMode.isEditing {
                         let allSelected = !shown.isEmpty && selection.count == shown.count
-                        Button(allSelected ? "Deselect All" : "Select All") { selection = allSelected ? [] : Set(shown.map(\.id)) }
+                        Button(allSelected ? "Deselect All" : "Select All") {
+                            animate { selection = allSelected ? [] : Set(shown.map(\.id)) }
+                        }
                     } else {
                         Button("Statement") { showStatement = true }
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     if editMode.isEditing {
-                        Button("Done") { editMode = .inactive; selection = [] }.bold()
+                        Button("Done") { animate { editMode = .inactive; selection = [] } }.bold()
                     } else {
                     Menu {
-                        Button { editMode = .active } label: { Label("Select Entries", systemImage: "checkmark.circle") }
+                        Button { animate { editMode = .active } } label: { Label("Select Entries", systemImage: "checkmark.circle") }
                         ShareLink(item: CSVExport(entries: store.entries), preview: SharePreview("ledger.csv")) {
                             Label("Export CSV", systemImage: "square.and.arrow.up")
                         }
@@ -119,7 +146,7 @@ struct ContentView: View {
                     }
                 }
             }
-            .sheet(item: $editing) { EditView(entry: $0) }
+            .sheet(item: $editing) { EditView(entry: $0).navigationTransition(.zoom(sourceID: $0.id, in: zoom)) }
             .sheet(isPresented: $showStatement) { StatementView() }
             .sheet(item: $splitting) { SplitSheet(pending: $0) }
             .fileImporter(isPresented: Binding(get: { picker != nil }, set: { if !$0 { picker = nil } }),
@@ -162,8 +189,13 @@ struct ContentView: View {
                     .padding(.horizontal, 16).padding(.vertical, 12)
                     .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 22))
                 Button(action: add) {
-                    if busy { ProgressView() } else { Image(systemName: "arrow.up").font(.body.bold()) }
+                    if busy { ProgressView().transition(.scale.combined(with: .opacity)) } else {
+                        Image(systemName: "arrow.up").font(.body.bold())
+                            .symbolEffect(.bounce.up, value: added)
+                            .transition(.scale.combined(with: .opacity))
+                    }
                 }
+                .animation(.snappy, value: busy)
                 .buttonStyle(.glassProminent)
                 .tint(accent)
                 .buttonBorderShape(.circle)
@@ -190,7 +222,8 @@ struct ContentView: View {
         .confirmationDialog("Delete \(selection.count) \(selection.count == 1 ? "entry" : "entries")? This can't be undone.",
                             isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
-                store.delete(ids: Array(selection)); selection = []; editMode = .inactive
+                animate { store.delete(ids: Array(selection)); selection = []; editMode = .inactive }
+                deleted += 1
             }
         }
     }
@@ -205,11 +238,16 @@ struct ContentView: View {
                 if let request = DeleteCommand.parse(line) {
                     let ids = DeleteCommand.matches(request, in: store.entries)
                     if ids.isEmpty { store.error = "No entries match “\(line)”." } else {
-                        onlyNeedsInput = false; search = ""; selection = Set(ids); editMode = .active
+                        animate { onlyNeedsInput = false; search = ""; selection = Set(ids); editMode = .active }
                     }
                     continue
                 }
-                guard let request = Split.parse(line) else { store.add(await SmartParser.parse(line)); continue }
+                guard let request = Split.parse(line) else {
+                    let entry = await SmartParser.parse(line)
+                    animate { store.add(entry) } // new row slides in at the top
+                    if entry.needsInput { flagged += 1 } else { added += 1 }
+                    continue
+                }
                 // A split line edits an earlier expense, or adds the bill first when it names a new amount.
                 if let target = Split.target(for: request, in: store.entries) {
                     splitting = PendingSplit(request: request, target: target)
@@ -218,7 +256,7 @@ struct ContentView: View {
                     bill.kind = .expense; bill.person = ""
                     if bill.category == "Loan" { bill.category = "Other" }
                     bill.question = bill.missingInfo()
-                    store.add(bill)
+                    animate { store.add(bill) }
                     splitting = PendingSplit(request: request, target: bill)
                 } else {
                     store.error = "There's no expense to split yet. Add the expense first, then split it."
@@ -268,6 +306,8 @@ struct SplitSheet: View {
                         LabeledContent("Each person owes you", value: rupees(result.owed.first?.amount ?? 0))
                     }
                 }
+                .contentTransition(.numericText()) // shares roll as you change the number of people
+                .animation(.snappy, value: current)
                 Section {
                     Stepper("Split with \(current.others) other\(current.others == 1 ? "" : "s")", value: $request.others, in: 1...20)
                     TextField("Names (optional), e.g. Rahul, Amit", text: $namesText)
@@ -282,7 +322,7 @@ struct SplitSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Split") { store.applySplit(current, to: target); dismiss() }.bold()
+                    Button("Split") { withAnimation(.snappy) { store.applySplit(current, to: target) }; dismiss() }.bold()
                 }
             }
         }
@@ -299,6 +339,7 @@ struct EntryRow: View {
                 Spacer()
                 // "+" marks money in; system green text on white is ~2.2:1, below the 3:1 bold minimum.
                 Text((entry.kind.isIn ? "+" : "") + (entry.amount.map(rupees) ?? "?")).font(.headline.monospacedDigit())
+                    .contentTransition(.numericText()) // e.g. ₹1,200 rolls down to ₹300 after a split
             }
             Text([entry.category, entry.method, entry.date.formatted(.dateTime.day().month().year().locale(english))]
                 .filter { !$0.isEmpty }.joined(separator: " · "))
@@ -308,6 +349,7 @@ struct EntryRow: View {
                 Label { Text(entry.question) } icon: {
                     Image(systemName: "questionmark.circle.fill").foregroundStyle(.orange)
                 }.font(.caption.weight(.medium))
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
     }
@@ -383,7 +425,7 @@ struct EditView: View {
     private func save() {
         entry.amount = Decimal(string: amountText.replacingOccurrences(of: ",", with: ""))
         entry.question = entry.missingInfo(checkCategory: false)
-        store.update(entry)
+        withAnimation(.snappy) { store.update(entry) }
         dismiss()
     }
 }
@@ -392,6 +434,8 @@ struct StatementView: View {
     @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var month = Date()
+    @State private var forward = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var text: String { Statement.text(for: month, entries: store.entries) }
 
@@ -401,7 +445,10 @@ struct StatementView: View {
             ScrollView([.vertical, .horizontal]) {
                 Text(text).font(.system(.footnote, design: .monospaced)).textSelection(.enabled)
                     .fixedSize().padding()
+                    .id(month) // a new month pushes in from the side you tapped
+                    .transition(reduceMotion ? .opacity : .push(from: forward ? .trailing : .leading))
             }
+            .sensoryFeedback(.selection, trigger: month)
             .navigationTitle(month.formatted(.dateTime.month(.wide).year().locale(english)))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -416,7 +463,12 @@ struct StatementView: View {
         }
     }
 
-    private func shift(_ by: Int) { month = Calendar.current.date(byAdding: .month, value: by, to: month) ?? month }
+    private func shift(_ by: Int) {
+        forward = by > 0
+        withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : .snappy) {
+            month = Calendar.current.date(byAdding: .month, value: by, to: month) ?? month
+        }
+    }
 }
 
 struct CSVExport: Transferable {
