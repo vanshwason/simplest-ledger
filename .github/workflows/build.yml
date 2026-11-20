@@ -45,6 +45,10 @@ jobs:
           xcrun simctl terminate "$DEVICE" app.simple.ledger
           xcrun simctl launch "$DEVICE" app.simple.ledger -statement && sleep 6
           xcrun simctl io "$DEVICE" screenshot shots/2-statement.png
+          xcrun simctl terminate "$DEVICE" app.simple.ledger
+          xcrun simctl ui "$DEVICE" appearance dark
+          xcrun simctl launch "$DEVICE" app.simple.ledger && sleep 6
+          xcrun simctl io "$DEVICE" screenshot shots/3-dark.png
       - uses: actions/upload-artifact@v4
         if: always()
         with:

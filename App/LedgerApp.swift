@@ -12,6 +12,12 @@ struct LedgerApp: App {
 
 let english = Locale(identifier: "en_IN")
 
+/// Teal from Chat Backup Browser's palette. Used only on the primary action (Liquid Glass color budget).
+/// Light #008069 is ~5:1 on white; dark #00A884 matches that app's dark accent.
+let accent = Color(UIColor { $0.userInterfaceStyle == .dark
+    ? UIColor(red: 0, green: 0xA8 / 255, blue: 0x84 / 255, alpha: 1)
+    : UIColor(red: 0, green: 0x80 / 255, blue: 0x69 / 255, alpha: 1) })
+
 struct ContentView: View {
     @Environment(Store.self) private var store
     @State private var input = ""
@@ -44,6 +50,11 @@ struct ContentView: View {
 
                 ForEach(shown) { e in
                     Button { editing = e } label: { EntryRow(entry: e) }.tint(.primary)
+                        .contextMenu { // long-press actions, as in Chat Backup Browser's mobile UI
+                            Button { editing = e } label: { Label("Edit", systemImage: "pencil") }
+                            Button { UIPasteboard.general.string = e.raw } label: { Label("Copy Text", systemImage: "doc.on.doc") }
+                            Button(role: .destructive) { store.delete(ids: [e.id]) } label: { Label("Delete", systemImage: "trash") }
+                        }
                 }
                 .onDelete { offsets in store.delete(ids: offsets.map { shown[$0].id }) }
             }
@@ -120,6 +131,7 @@ struct ContentView: View {
                     if busy { ProgressView() } else { Image(systemName: "arrow.up").font(.body.bold()) }
                 }
                 .buttonStyle(.glassProminent)
+                .tint(accent)
                 .buttonBorderShape(.circle)
                 .controlSize(.large)
                 .disabled(busy || input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
