@@ -90,12 +90,33 @@ final class Store {
         save()
     }
 
-    func setBackupFolder(_ url: URL) {
+    private var backupFileName: String { UserDefaults.standard.string(forKey: "backupFileName") ?? "ledger-backup.csv" }
+
+    /// True if the folder already holds a backup (another install, a reinstall), so the app asks before replacing it.
+    func hasBackup(in url: URL) -> Bool {
         let ok = url.startAccessingSecurityScopedResource()
         defer { if ok { url.stopAccessingSecurityScopedResource() } }
+        return FileManager.default.fileExists(atPath: url.appending(path: "ledger-backup.csv").path)
+    }
+
+    /// importExisting: merge the backup already in the folder, then keep backing up to it.
+    /// Otherwise an existing backup is left untouched and a new file is written beside it.
+    func setBackupFolder(_ url: URL, importExisting: Bool = false) {
+        let ok = url.startAccessingSecurityScopedResource()
+        defer { if ok { url.stopAccessingSecurityScopedResource() } }
+        let existing = url.appending(path: "ledger-backup.csv")
+        let hasExisting = FileManager.default.fileExists(atPath: existing.path)
         do {
+            // Import first: if the file can't be read, nothing changes and it isn't overwritten.
+            if hasExisting && importExisting { try importCSV(String(contentsOf: existing, encoding: .utf8)) }
+            var name = "ledger-backup.csv"
+            if hasExisting && !importExisting {
+                let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd HHmm"
+                name = "ledger-backup \(f.string(from: Date())).csv"
+            }
             UserDefaults.standard.set(try url.bookmarkData(), forKey: bookmarkKey)
             UserDefaults.standard.set(url.lastPathComponent, forKey: "backupFolderName")
+            UserDefaults.standard.set(name, forKey: "backupFileName")
             backupFolderName = url.lastPathComponent
             backup()
         } catch {
@@ -124,7 +145,7 @@ final class Store {
         defer { if ok { folder.stopAccessingSecurityScopedResource() } }
         let csv = CSV.encode(entries)
         var coordError: NSError?, writeError: Error?
-        NSFileCoordinator().coordinate(writingItemAt: folder.appending(path: "ledger-backup.csv"),
+        NSFileCoordinator().coordinate(writingItemAt: folder.appending(path: backupFileName),
                                        options: .forReplacing, error: &coordError) { url in
             do { try csv.write(to: url, atomically: true, encoding: .utf8) } catch { writeError = error }
         }

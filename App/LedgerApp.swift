@@ -40,6 +40,7 @@ struct ContentView: View {
     @State private var editing: Entry?
     @State private var showStatement = false
     @State private var picker: PickerMode?
+    @State private var existingBackup: URL? // chosen folder already has ledger-backup.csv: ask before using it
     @State private var splitting: PendingSplit?
     @State private var editMode: EditMode = .inactive
     @State private var selection = Set<UUID>()
@@ -241,13 +242,23 @@ struct ContentView: View {
                           allowedContentTypes: picker == .folder ? [.folder] : [.commaSeparatedText, .plainText]) { result in
                 let mode = picker
                 guard case .success(let url) = result else { return }
-                if mode == .folder { store.setBackupFolder(url); return }
+                if mode == .folder {
+                    if store.hasBackup(in: url) { existingBackup = url } else { store.setBackupFolder(url) }
+                    return
+                }
                 let ok = url.startAccessingSecurityScopedResource()
                 defer { if ok { url.stopAccessingSecurityScopedResource() } }
                 do { try store.importCSV(String(contentsOf: url, encoding: .utf8)) } catch {
                     store.error = error.localizedDescription
                 }
             }
+            .confirmationDialog("This folder already has a backup",
+                                isPresented: Binding(get: { existingBackup != nil }, set: { if !$0 { existingBackup = nil } }),
+                                titleVisibility: .visible, presenting: existingBackup) { url in
+                Button("Import It") { store.setBackupFolder(url, importExisting: true) }
+                Button("Keep It, Save a New File Beside It") { store.setBackupFolder(url) }
+                Button("Cancel", role: .cancel) {}
+            } message: { _ in Text("Import adds its entries to this phone. Nothing is overwritten either way.") }
             .alert("Start a Trip", isPresented: $askTripName) {
                 TextField("Where? e.g. Goa", text: $tripName)
                 Button("Start") { startTrip(tripName) }
