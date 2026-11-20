@@ -35,16 +35,16 @@ Set up the backup once: tap **⋯**, then **Choose backup folder**. Pick a folde
 ## Install on your iPhone (free, from Windows)
 
 One-time setup:
-1. On the PC: **iTunes**, **iCloud** and **Sideloadly** (already installed by `winget`). Open iTunes once, plug in the iPhone and tap **Trust** on the phone.
+1. On the PC: **Apple Devices** (Microsoft Store, provides the iPhone USB driver) and **Impactor** (open-source sideloader from [github.com/CLARATION/Impactor](https://github.com/CLARATION/Impactor)), both installed with `winget`. Open Apple Devices once, plug in the iPhone and tap **Trust** on the phone. (Sideloadly also works, but needs the non-Store iTunes and iCloud.)
 2. On the iPhone: Settings, Privacy & Security, **Developer Mode**, turn it on. The phone restarts.
 3. Make sure Apple Intelligence is on: Settings, Apple Intelligence & Siri.
 
 Each install:
 1. Download the newest `Ledger-ipa` from GitHub: repo, **Actions**, latest green run, **Artifacts**. Or run:
    `gh run download --repo vanshwason/ledger-ios -n Ledger-ipa`
-2. Open Sideloadly, drag in `Ledger.ipa`, enter your Apple ID, click **Start**.
+2. Open **PlumeImpactor** from the Start menu, sign in with your Apple ID inside the app, pick your iPhone, drop in `Ledger.ipa` and install.
 3. First time only: on the iPhone go to Settings, General, VPN & Device Management, tap your Apple ID, then **Trust**.
-4. Repeat steps 2 and 3 every 7 days, before the app expires. Sideloadly can do it over Wi-Fi if you enable "Sync over Wi-Fi" in iTunes.
+4. Repeat step 2 every 7 days, before the app expires. Your data stays.
 
 Free Apple ID limits: 3 sideloaded apps at a time, and the app is re-signed every 7 days.
 
