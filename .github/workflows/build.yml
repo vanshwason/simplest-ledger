@@ -50,6 +50,9 @@ jobs:
           xcrun simctl install "$DEVICE" simbuild/Build/Products/Debug-iphonesimulator/Ledger.app
           xcrun simctl status_bar "$DEVICE" override --time 9:41 --batteryLevel 100 --batteryState charged --cellularBars 4 --wifiBars 3
           mkdir -p shots
+          xcrun simctl launch "$DEVICE" app.simple.ledger && sleep 6
+          xcrun simctl io "$DEVICE" screenshot shots/0-empty.png
+          xcrun simctl terminate "$DEVICE" app.simple.ledger
           LINES=$(printf '1500 spent on snacks via upi\n5000 rupees lent through credit card to Rahul\nsalary 50000 credited\npaid 300\ngot 2000 back from Rahul\nyesterday 1.5k uber\n1200 spent on outing by credit card')
           xcrun simctl launch "$DEVICE" app.simple.ledger -no-keyboard -add "$LINES" && sleep 10
           xcrun simctl io "$DEVICE" screenshot shots/1-entries.png

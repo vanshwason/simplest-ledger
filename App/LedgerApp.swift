@@ -153,15 +153,17 @@ struct ContentView: View {
                 }
                 // Swipe-to-delete off while selecting, so rows show only the checkmark.
                 .onDelete(perform: editMode.isEditing ? nil : { offsets in store.delete(ids: offsets.map { shown[$0].id }) })
-            }
-            .environment(\.editMode, $editMode)
-            .overlay {
+
+                // A row, not an overlay: an overlay centers on the screen and slides onto the filter when the keyboard opens.
                 if store.entries.isEmpty && queue.isEmpty && scanning == nil {
                     ContentUnavailableView("No entries yet", systemImage: "text.bubble",
-                        description: Text("Type what happened below, like “1500 spent on snacks”. One entry per line. Anything unclear goes to Needs input."))
+                        description: Text("Type what happened below, like “1500 snacks via UPI”. Anything unclear goes to Needs input."))
+                        .listRowBackground(Color.clear)
+                        .selectionDisabled()
                         .transition(.opacity)
                 }
             }
+            .environment(\.editMode, $editMode)
             .sensoryFeedback(.success, trigger: added)
             .sensoryFeedback(.warning, trigger: flagged)
             .sensoryFeedback(.impact(weight: .medium), trigger: deleted)
