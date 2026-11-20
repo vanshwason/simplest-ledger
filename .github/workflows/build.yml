@@ -1,0 +1,32 @@
+name: Build IPA
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show Xcode
+        run: xcodebuild -version
+      - name: Test parser, statement and CSV
+        run: swift test --package-path LedgerCore
+      - name: Generate Xcode project
+        run: brew install xcodegen && xcodegen generate
+      - name: Build unsigned app
+        run: |
+          xcodebuild -project Ledger.xcodeproj -scheme Ledger -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
+      - name: Package IPA
+        # Sideloadly signs it with your free Apple ID on install.
+        run: |
+          mkdir Payload
+          cp -R build/Build/Products/Release-iphoneos/Ledger.app Payload/
+          zip -qry Ledger.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Ledger-ipa
+          path: Ledger.ipa

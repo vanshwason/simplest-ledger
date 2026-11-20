@@ -1,0 +1,32 @@
+# XcodeGen spec. CI turns this into Ledger.xcodeproj (no Mac needed on your side).
+name: Ledger
+options:
+  deploymentTarget:
+    iOS: "26.0"
+packages:
+  LedgerCore:
+    path: LedgerCore
+targets:
+  Ledger:
+    type: application
+    platform: iOS
+    sources: [App]
+    dependencies:
+      - package: LedgerCore
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Ledger
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        UILaunchScreen: {}
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        CFBundleURLTypes:
+          - CFBundleURLName: ledger
+            CFBundleURLSchemes: [ledger]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.simple.ledger
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
