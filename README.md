@@ -81,6 +81,8 @@ iOS doesn't let apps read SMS, so a Shortcuts automation hands each message to t
    <img src="docs/shortcut/2-action.png" width="360" alt="Add to Ledger action with the message and Show When Run off">
 4. Tap **›** next to *where*: **Automation** on, **Confirm Before Run** off.
 
+   <img src="docs/shortcut/3-run.png" width="360" alt="Automation on, Confirm Before Run off">
+
 On iOS 26: Shortcuts → **Automation** tab → **+** → **Message**, then the same settings, with **Run Immediately**.
 
 ---
