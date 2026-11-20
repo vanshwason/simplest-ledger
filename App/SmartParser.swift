@@ -10,12 +10,12 @@ struct AIEntry {
            .anyOf(["expense", "income", "lent", "borrowed", "repaid_to_me", "repaid_by_me"]))
     var kind: String
     // Keep in sync with RuleParser.categoryNames.
-    @Guide(description: "Spending category. Dining Out = eating or drinking at a place; Food Delivery = Swiggy, Zomato or ordered in; Groceries = food to cook at home; Utilities = electricity, wifi, water, gas, phone recharge; Online Shopping = Amazon, Flipkart and similar.",
+    @Guide(description: "Spending category. Dining Out = eating or drinking at a place; Food Delivery = Swiggy, Zomato or ordered in; Groceries = food to cook at home; Utilities = electricity, wifi, water, gas, phone recharge; Online Shopping = Amazon, Flipkart and similar. Other when the text doesn't say what it was for; never guess.",
            .anyOf(["Food Delivery", "Groceries", "Dining Out", "Utilities", "Rent", "ATM Cash", "Transport", "Online Shopping",
                    "Shopping", "Subscriptions", "Entertainment", "Health", "Personal Care", "Travel", "Education",
                    "EMI & Insurance", "Salary", "Gift", "Loan", "Income", "Other"]))
     var category: String
-    @Guide(description: "How it was paid",
+    @Guide(description: "How it was paid. Unknown unless the text says so.",
            .anyOf(["Credit Card", "Debit Card", "UPI", "Cash", "Bank Transfer", "Card", "Unknown"]))
     var method: String
     @Guide(description: "First name of the other person when money was lent, borrowed or repaid. Empty otherwise.")
@@ -36,7 +36,7 @@ enum SmartParser {
             entry.kind = Kind(rawValue: ai.kind) ?? entry.kind
             if ai.category != "Other" || entry.category == "Other" { entry.category = ai.category }
             if entry.method.isEmpty, ai.method != "Unknown" { entry.method = ai.method }
-            if !ai.person.isEmpty { entry.person = ai.person }
+            if !ai.person.isEmpty, entry.kind.needsPerson { entry.person = ai.person } // "to VPA test@ybl" isn't a person
             entry.note = ai.note
             // Hindi typed or dictated: keep your words in `raw`, show this English sentence instead.
             if entry.displayText == entry.raw, !ai.english.isEmpty,

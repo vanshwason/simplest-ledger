@@ -47,6 +47,14 @@ final class LedgerCoreTests: XCTestCase {
         XCTAssertEqual(money(-200), "-₹200")
     }
 
+    /// Your first real automation test: a UPI handle means UPI, and "to VPA" isn't a person.
+    func testUPIHandle() {
+        let e = parse("₹250 debited from A/c XX1234 to VPA test@ybl")
+        XCTAssertEqual(e.method, "UPI"); XCTAssertEqual(e.person, ""); XCTAssertEqual(e.amount, 250)
+        XCTAssertEqual(parse("paid 300 to rahul@okaxis").method, "UPI")
+        XCTAssertEqual(parse("Rs 300 debited, help: support@hdfcbank.com").method, "") // an email isn't UPI
+    }
+
     /// One currency per ledger, no conversion: the others' amounts are left for you to fill in.
     func testOtherCurrencies() {
         defer { Currency.current = Currency(code: "INR") }

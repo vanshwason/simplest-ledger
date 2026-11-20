@@ -38,7 +38,7 @@ public enum RuleParser {
 
     /// Credit and Debit Card are decided in `parse` (they need "card" too: SMS say "has a debit" or "credited").
     public static let methods: [(name: String, words: [String])] = [
-        ("UPI", ["upi", "gpay", "googlepay", "phonepe", "paytm", "bhim"]),
+        ("UPI", ["upi", "vpa", "gpay", "googlepay", "phonepe", "paytm", "bhim"]),
         ("Cash", ["cash"]),
         ("Bank Transfer", ["neft", "imps", "rtgs"]), // plain "bank" is in every bank SMS; "bank transfer" is handled in parse
         ("Card", ["card"]),
@@ -80,7 +80,8 @@ public enum RuleParser {
         let method = has(["cc"]) || (has(["credit"]) && has(["card"])) ? "Credit Card"
             : has(["debit"]) && has(["card"]) ? "Debit Card"
             : has(["bank"]) && has(["transfer"]) ? "Bank Transfer"
-            : methods.first { m in has(m.words) }?.name ?? ""
+            : methods.first { m in has(m.words) }?.name
+            ?? (lower.contains(#/@[a-z]{2,}(?![a-z.])/#) ? "UPI" : "") // a UPI handle like test@ybl, not an email
 
         var person = ""
         if kind.needsPerson, let i = words.firstIndex(where: { ["to", "from", "with"].contains($0) }) {
