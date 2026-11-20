@@ -30,3 +30,24 @@ jobs:
         with:
           name: Ledger-ipa
           path: Ledger.ipa
+      - name: Run in iPhone Simulator, type entries, screenshot
+        # Windows can't run the simulator, so this is the "test it here" step. AI is off in CI, so it shows the rule parser.
+        run: |
+          xcodebuild -project Ledger.xcodeproj -scheme Ledger -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath simbuild build -quiet
+          DEVICE=$(xcrun simctl list devices available | grep -m1 -E "iPhone [0-9]+ Pro \(" | grep -oE '[0-9A-F-]{36}')
+          xcrun simctl boot "$DEVICE" && xcrun simctl bootstatus "$DEVICE" -b
+          xcrun simctl install "$DEVICE" simbuild/Build/Products/Debug-iphonesimulator/Ledger.app
+          xcrun simctl launch "$DEVICE" app.simple.ledger && sleep 8
+          mkdir -p shots && xcrun simctl io "$DEVICE" screenshot shots/1-empty.png
+          for t in "1500 spent on snacks via upi" "5000 rupees lent through credit card to Rahul" \
+                   "salary 50000 credited" "paid 300" "got 2000 back from Rahul"; do
+            xcrun simctl openurl "$DEVICE" "ledger://add?text=$(python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1]))' "$t")"
+            sleep 3
+          done
+          xcrun simctl io "$DEVICE" screenshot shots/2-entries.png
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: simulator-screenshots
+          path: shots
