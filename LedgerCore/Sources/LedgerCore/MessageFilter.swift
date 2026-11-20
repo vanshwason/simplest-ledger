@@ -3,7 +3,8 @@ import Foundation
 /// Bank texts that mention money but aren't a transaction that happened: OTPs, failed or scheduled payments,
 /// offers, statements, payment requests, card-bill receipts (counting those would double-count your spends).
 public enum MessageFilter {
-    static let otp = try! Regex(#"otp\s*(?:is|for|:)?\s*\d{4,8}|\d{4,8}\s+is\s+(?:the|your)\s+otp"#).ignoresCase()
+    // "OTP is 1234", "Your Apple Account Code is: 190600", "482913 is your OTP"
+    static let otp = try! Regex(#"(?:otp|code|passcode)\b[\s:]*(?:is|for)?[\s:]*\d{4,8}|\d{4,8}\s+is\s+(?:the|your)\s+(?:otp|code)"#).ignoresCase()
 
     static let moneyVerbs: Set<String> = ["debited", "credited", "spent", "paid", "sent", "received", "withdrawn", "deducted",
                                           "debit", "credit", "dr", "cr", "refund", "reversed", "txn", "transaction", "purchase",

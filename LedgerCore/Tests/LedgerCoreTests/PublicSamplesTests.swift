@@ -66,7 +66,11 @@ final class PublicSamplesTests: XCTestCase {
     /// One broad automation ("contains Rs") also catches chats; those must never become entries.
     func testChatsAreNotTransactions() {
         let chats = ["I'll see yours at 5, two hours from now", "paid 500 for your ticket, send it back later",
-                     "Rs 200 de dena kal", "Happy birthday! Cheers to many more years", "Your Uber is arriving in 3 mins"]
+                     "Rs 200 de dena kal", "Happy birthday! Cheers to many more years", "Your Uber is arriving in 3 mins",
+                     // Real messages that v1.0.1 wrongly added as ₹1,90,600 and ₹25,199:
+                     "Your Apple Account Code is: 190600. Don't share it with anyone.",
+                     "Your Apple Account code is: 444552. Do not share it with anyone.",
+                     "Your verification code is 482910 for a transaction of Rs 1,500 at AMAZON"]
         for c in chats { XCTAssertNotNil(MessageFilter.ignoreReason(c), c) }
     }
 
