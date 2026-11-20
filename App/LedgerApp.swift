@@ -176,7 +176,8 @@ struct ContentView: View {
             }
             .onAppear { inputFocused = true }
             .onChange(of: input) { if !input.isEmpty { notice = nil } } // typing replaces the fix-it hint
-            .onChange(of: showStatement || editing != nil || picker != nil || splitting != nil || editMode.isEditing) { _, open in
+            .onChange(of: showStatement || editing != nil || picker != nil || splitting != nil || editMode.isEditing
+                      || showSMS || showHelp) { _, open in
                 if open { inputFocused = false }
             }
             .navigationTitle("Ledger")
