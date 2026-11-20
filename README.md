@@ -64,7 +64,9 @@ Plain text: by category, by payment method, who owes whom. Copy or share.</td>
 2. Install with [Sideloadly](https://sideloadly.io) and a free Apple ID.
 3. iPhone: Settings → General → VPN & Device Management → **Trust**.
 
-Re-install every 7 days (free Apple ID limit). Your data stays. Requires iOS 26.
+Re-install every 7 days (free Apple ID limit). Your data stays.
+
+**Works on** any iPhone with **iOS 26** (iPhone 11 or newer, SE 2nd gen or newer). Smarter parsing with Apple Intelligence on iPhone 15 Pro, all iPhone 16 and 17 models; other iPhones use the built-in offline parser. Tested on iPhone 16 Pro.
 
 ---
 
