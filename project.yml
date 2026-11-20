@@ -16,7 +16,7 @@ targets:
     info:
       path: App/Info.plist
       properties:
-        CFBundleDisplayName: Plain Ledger
+        CFBundleDisplayName: Simplest Ledger
         NSCameraUsageDescription: Scan a receipt to add it as an entry. The photo is read on your iPhone and not saved or sent anywhere.
         CFBundleShortVersionString: "1.0"
         CFBundleVersion: "1"

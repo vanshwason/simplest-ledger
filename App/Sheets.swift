@@ -138,7 +138,7 @@ struct SMSSetupSheet: View {
                             .foregroundStyle(store.lastMessageAt == nil ? Color.secondary : accent)
                     }
                 } footer: {
-                    Text("iPhone doesn't let any app read your messages. A one-time Shortcuts automation sends bank SMS to Plain Ledger instead, in the background.")
+                    Text("iPhone doesn't let any app read your messages. A one-time Shortcuts automation sends bank SMS to Simplest Ledger instead, in the background.")
                 }
 
                 Section("Words to watch for") {

@@ -1,7 +1,12 @@
 name: Build IPA
 on:
   push:
+    branches: [main]
+    tags: ['v*']
   workflow_dispatch:
+
+permissions:
+  contents: write # attach the IPA to releases
 
 jobs:
   build:
@@ -25,47 +30,53 @@ jobs:
         run: |
           mkdir Payload
           cp -R build/Build/Products/Release-iphoneos/Ledger.app Payload/
-          zip -qry Ledger.ipa Payload
+          zip -qry SimplestLedger.ipa Payload
       - uses: actions/upload-artifact@v4
         with:
-          name: Ledger-ipa
-          path: Ledger.ipa
+          name: SimplestLedger-ipa
+          path: SimplestLedger.ipa
+      - name: Attach IPA to the GitHub release (version tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" SimplestLedger.ipa --clobber
       - name: Run in iPhone Simulator, type entries, screenshot
-        # Windows can't run the simulator, so this is the "test it here" step. AI is off in CI, so it shows the rule parser.
+        # Windows can't run the simulator, so this is the "test it here" step. Apple Intelligence is not available here, so it uses the keyword parser.
         run: |
           xcodebuild -project Ledger.xcodeproj -scheme Ledger -configuration Debug -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' -derivedDataPath simbuild build -quiet
           DEVICE=$(xcrun simctl list devices available | grep -m1 -E "iPhone [0-9]+ Pro \(" | grep -oE '[0-9A-F-]{36}')
           xcrun simctl boot "$DEVICE" && xcrun simctl bootstatus "$DEVICE" -b
           xcrun simctl install "$DEVICE" simbuild/Build/Products/Debug-iphonesimulator/Ledger.app
+          xcrun simctl status_bar "$DEVICE" override --time 9:41 --batteryLevel 100 --batteryState charged --cellularBars 4 --wifiBars 3
           mkdir -p shots
           LINES=$(printf '1500 spent on snacks via upi\n5000 rupees lent through credit card to Rahul\nsalary 50000 credited\npaid 300\ngot 2000 back from Rahul\nyesterday 1.5k uber\n1200 spent on outing by credit card')
-          xcrun simctl launch "$DEVICE" app.simple.ledger -add "$LINES" && sleep 10
+          xcrun simctl launch "$DEVICE" app.simple.ledger -no-keyboard -add "$LINES" && sleep 10
           xcrun simctl io "$DEVICE" screenshot shots/1-entries.png
           xcrun simctl terminate "$DEVICE" app.simple.ledger
-          xcrun simctl launch "$DEVICE" app.simple.ledger -statement && sleep 6
+          xcrun simctl launch "$DEVICE" app.simple.ledger -no-keyboard -statement && sleep 6
           xcrun simctl io "$DEVICE" screenshot shots/2-statement.png
           xcrun simctl terminate "$DEVICE" app.simple.ledger
-          xcrun simctl launch "$DEVICE" app.simple.ledger -add "split the outing with Rahul, Amit and Neha" && sleep 6
+          xcrun simctl launch "$DEVICE" app.simple.ledger -no-keyboard -add "split the outing with Rahul, Amit and Neha" && sleep 6
           xcrun simctl io "$DEVICE" screenshot shots/4-split.png
           xcrun simctl terminate "$DEVICE" app.simple.ledger
-          xcrun simctl launch "$DEVICE" app.simple.ledger -add "all entries were test entries please delete" && sleep 6
+          xcrun simctl launch "$DEVICE" app.simple.ledger -no-keyboard -add "all entries were test entries please delete" && sleep 6
           xcrun simctl io "$DEVICE" screenshot shots/5-delete.png
           xcrun simctl terminate "$DEVICE" app.simple.ledger
-          xcrun simctl launch "$DEVICE" app.simple.ledger -add "$(printf 'going on goa trip\nhotel 5000\npaid 300 for something')" && sleep 6
+          xcrun simctl launch "$DEVICE" app.simple.ledger -no-keyboard -add "$(printf 'going on goa trip\nhotel 5000\npaid 300 for something')" && sleep 6
           xcrun simctl io "$DEVICE" screenshot shots/6-trip.png
           xcrun simctl terminate "$DEVICE" app.simple.ledger
-          xcrun simctl launch "$DEVICE" app.simple.ledger -edit-first && sleep 6
+          xcrun simctl launch "$DEVICE" app.simple.ledger -no-keyboard -edit-first && sleep 6
           xcrun simctl io "$DEVICE" screenshot shots/7-edit.png
           xcrun simctl terminate "$DEVICE" app.simple.ledger
           xcrun simctl launch "$DEVICE" app.simple.ledger -add "delete the xyz entry" && sleep 6
           xcrun simctl io "$DEVICE" screenshot shots/8-suggest.png
           xcrun simctl terminate "$DEVICE" app.simple.ledger
-          xcrun simctl launch "$DEVICE" app.simple.ledger -sms-setup && sleep 6
+          xcrun simctl launch "$DEVICE" app.simple.ledger -no-keyboard -sms-setup && sleep 6
           xcrun simctl io "$DEVICE" screenshot shots/9-sms.png
           xcrun simctl terminate "$DEVICE" app.simple.ledger
           xcrun simctl ui "$DEVICE" appearance dark
-          xcrun simctl launch "$DEVICE" app.simple.ledger && sleep 6
+          xcrun simctl launch "$DEVICE" app.simple.ledger -no-keyboard && sleep 6
           xcrun simctl io "$DEVICE" screenshot shots/3-dark.png
       - uses: actions/upload-artifact@v4
         if: always()

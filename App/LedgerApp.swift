@@ -14,8 +14,8 @@ struct LedgerApp: App {
 
 let english = Locale(identifier: "en_IN")
 
-/// Teal from Chat Backup Browser's palette. Used only on the primary action (Liquid Glass color budget).
-/// Light #008069 is ~5:1 on white; dark #00A884 matches that app's dark accent.
+/// Teal accent. Used only on the primary action (Liquid Glass color budget).
+/// Light #008069 is ~5:1 on white; dark #00A884 for dark mode.
 let accent = Color(UIColor { $0.userInterfaceStyle == .dark
     ? UIColor(red: 0, green: 0xA8 / 255, blue: 0x84 / 255, alpha: 1)
     : UIColor(red: 0, green: 0x80 / 255, blue: 0x69 / 255, alpha: 1) })
@@ -126,7 +126,7 @@ struct ContentView: View {
                         else { Button { editing = e } label: { EntryRow(entry: e) }.tint(.primary) }
                     }
                         .matchedTransitionSource(id: e.id, in: zoom) // the edit sheet zooms out of this row
-                        .contextMenu { // long-press actions, as in Chat Backup Browser's mobile UI
+                        .contextMenu { // long-press actions
                             Button { editing = e } label: { Label("Edit", systemImage: "pencil") }
                             Button { animate { selection = [e.id]; editMode = .active } } label: {
                                 Label("Select", systemImage: "checkmark.circle")
@@ -174,7 +174,7 @@ struct ContentView: View {
                     if editMode.isEditing { deleteBar.transition(barTransition) } else { inputBar.transition(barTransition) }
                 }
             }
-            .onAppear { inputFocused = true }
+            .onAppear { inputFocused = !ProcessInfo.processInfo.arguments.contains("-no-keyboard") } // CI screenshots
             .onChange(of: input) { if !input.isEmpty { notice = nil } } // typing replaces the fix-it hint
             .onChange(of: showStatement || editing != nil || picker != nil || splitting != nil || editMode.isEditing
                       || showSMS || showHelp) { _, open in
