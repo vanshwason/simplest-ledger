@@ -2,23 +2,38 @@ import Foundation
 
 /// Offline keyword parser. Always runs; the on-device AI (in the app) refines its result.
 public enum RuleParser {
-    public static let categories: [(name: String, words: [String])] = [
-        ("Food", ["snack", "food", "lunch", "dinner", "breakfast", "chai", "tea", "coffee", "zomato", "swiggy",
-                  "restaurant", "pizza", "burger", "biryani", "samosa", "khana", "cafe", "juice"]),
-        ("Groceries", ["grocer", "vegetable", "sabzi", "milk", "doodh", "blinkit", "zepto", "bigbasket", "fruit", "ration"]),
-        ("Transport", ["uber", "ola", "rapido", "auto", "cab", "taxi", "metro", "bus", "petrol", "diesel", "fuel",
-                       "parking", "toll", "fastag"]),
-        ("Rent", ["rent", "kiraya"]),
-        ("Bills", ["electricity", "bijli", "recharge", "wifi", "internet", "broadband", "bill", "emi", "insurance"]),
-        ("Shopping", ["amazon", "flipkart", "myntra", "clothes", "shoes", "shirt", "shopping", "meesho"]),
-        ("Health", ["medicine", "dawai", "doctor", "hospital", "pharmacy", "chemist", "gym"]),
-        ("Entertainment", ["movie", "netflix", "spotify", "prime", "hotstar", "game", "party", "concert", "outing"]),
-        ("Travel", ["flight", "hotel", "train", "irctc", "trip", "travel"]),
-        ("Education", ["course", "book", "fees", "tuition", "school", "college"]),
-        ("Salary", ["salary", "paycheck", "stipend"]),
-        ("Gift", ["gift"]),
+    /// First match wins, so delivery apps come before dish names ("pizza from zomato" is delivery).
+    public static let categories: [(name: String, emoji: String, words: [String])] = [
+        ("Food Delivery", "🛵", ["swiggy", "zomato", "eatsure", "ordered", "delivery"]),
+        ("Groceries", "🛒", ["grocer", "vegetable", "sabzi", "milk", "doodh", "blinkit", "zepto", "bigbasket", "instamart",
+                            "dmart", "fruit", "ration", "atta"]),
+        ("Dining Out", "🍽️", ["restaurant", "cafe", "dinner", "lunch", "breakfast", "dosa", "idli", "chai", "tea", "coffee",
+                              "pizza", "burger", "biryani", "samosa", "snack", "juice", "food", "khana", "starbucks",
+                              "mcdonald", "kfc", "dhaba", "momos", "maggi", "icecream", "sweets", "mithai"]),
+        ("Utilities", "💡", ["electricity", "bijli", "wifi", "internet", "broadband", "water", "gas", "cylinder", "recharge",
+                            "dth", "postpaid", "airtel", "jio", "bill"]),
+        ("Rent", "🏠", ["rent", "kiraya", "maintenance"]),
+        ("Transport", "🚕", ["uber", "ola", "rapido", "auto", "cab", "taxi", "metro", "bus", "petrol", "diesel", "fuel",
+                            "parking", "toll", "fastag"]),
+        ("Online Shopping", "📦", ["amazon", "flipkart", "myntra", "meesho", "ajio", "nykaa", "online"]),
+        ("Shopping", "🛍️", ["clothes", "shoes", "shirt", "jeans", "shopping", "mall"]),
+        ("Subscriptions", "📺", ["netflix", "spotify", "prime", "hotstar", "youtube", "icloud", "chatgpt", "subscription"]),
+        ("Entertainment", "🎬", ["movie", "game", "party", "concert", "outing", "pvr", "bookmyshow"]),
+        ("Health", "💊", ["medicine", "dawai", "doctor", "hospital", "pharmacy", "chemist", "apollo", "gym"]),
+        ("Personal Care", "💇", ["salon", "haircut", "parlour", "spa", "grooming"]),
+        ("Travel", "✈️", ["flight", "hotel", "train", "irctc", "trip", "travel", "makemytrip"]),
+        ("Education", "📚", ["course", "book", "fees", "tuition", "school", "college"]),
+        ("EMI & Insurance", "🏦", ["emi", "insurance", "premium"]),
+        ("Salary", "💼", ["salary", "paycheck", "stipend"]),
+        ("Gift", "🎁", ["gift"]),
     ]
+    static let extraEmoji = ["Loan": "🤝", "Income": "💰", "Split": "👥", "Other": "🏷️",
+                             "Food": "🍽️", "Bills": "🧾"] // last two: entries saved before categories were split up
     public static var categoryNames: [String] { categories.map(\.name) + ["Loan", "Income", "Split", "Other"] }
+
+    public static func emoji(for category: String) -> String {
+        categories.first { $0.name == category }?.emoji ?? extraEmoji[category] ?? "🏷️"
+    }
 
     public static let methods: [(name: String, words: [String])] = [
         ("Credit Card", ["credit", "cc"]),

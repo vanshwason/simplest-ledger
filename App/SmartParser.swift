@@ -9,9 +9,11 @@ struct AIEntry {
     @Guide(description: "Type of transaction from the writer's point of view",
            .anyOf(["expense", "income", "lent", "borrowed", "repaid_to_me", "repaid_by_me"]))
     var kind: String
-    @Guide(description: "Spending category",
-           .anyOf(["Food", "Groceries", "Transport", "Rent", "Bills", "Shopping", "Health", "Entertainment",
-                   "Travel", "Education", "Salary", "Gift", "Loan", "Income", "Other"]))
+    // Keep in sync with RuleParser.categoryNames.
+    @Guide(description: "Spending category. Dining Out = eating or drinking at a place; Food Delivery = Swiggy, Zomato or ordered in; Groceries = food to cook at home; Utilities = electricity, wifi, water, gas, phone recharge; Online Shopping = Amazon, Flipkart and similar.",
+           .anyOf(["Food Delivery", "Groceries", "Dining Out", "Utilities", "Rent", "Transport", "Online Shopping",
+                   "Shopping", "Subscriptions", "Entertainment", "Health", "Personal Care", "Travel", "Education",
+                   "EMI & Insurance", "Salary", "Gift", "Loan", "Income", "Other"]))
     var category: String
     @Guide(description: "How it was paid",
            .anyOf(["Credit Card", "Debit Card", "UPI", "Cash", "Bank Transfer", "Card", "Unknown"]))

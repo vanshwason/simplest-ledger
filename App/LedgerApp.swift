@@ -78,6 +78,15 @@ struct ContentView: View {
                             Button { animate { selection = [e.id]; editMode = .active } } label: {
                                 Label("Select", systemImage: "checkmark.circle")
                             }
+                            Menu {
+                                ForEach(RuleParser.categoryNames, id: \.self) { name in
+                                    Button("\(RuleParser.emoji(for: name)) \(name)") {
+                                        var changed = e; changed.category = name
+                                        changed.question = changed.missingInfo(checkCategory: false)
+                                        animate { store.update(changed) }
+                                    }
+                                }
+                            } label: { Label("Category", systemImage: "tag") }
                             if e.kind == .expense {
                                 Button { splitting = PendingSplit(request: SplitRequest(), target: e) } label: {
                                     Label("Split…", systemImage: "person.2")
@@ -256,7 +265,7 @@ struct ContentView: View {
                     bill.kind = .expense; bill.person = ""
                     if bill.category == "Loan" { bill.category = "Other" }
                     bill.question = bill.missingInfo()
-                    animate { store.add(bill) }
+                    // Saved only if you tap Split (applySplit adds it); Cancel leaves no stray entry.
                     splitting = PendingSplit(request: request, target: bill)
                 } else {
                     store.error = "There's no expense to split yet. Add the expense first, then split it."
@@ -280,17 +289,21 @@ struct SplitSheet: View {
     let target: Entry
     @State private var request: SplitRequest
     @State private var namesText: String
+    @State private var paidText: String
 
     init(pending: PendingSplit) {
         target = pending.target
         _request = State(initialValue: pending.request)
         _namesText = State(initialValue: pending.request.names.joined(separator: ", "))
+        _paidText = State(initialValue: pending.request.contributed.map { "\($0)" } ?? "")
     }
 
     private var current: SplitRequest {
         var r = request
         r.names = namesText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         r.others = max(r.others, r.names.count)
+        r.contributed = Decimal(string: paidText.replacingOccurrences(of: ",", with: ""))
+        if r.contributed != nil { r.alreadyPaid = true }
         return r
     }
 
@@ -301,6 +314,7 @@ struct SplitSheet: View {
                 Section("Expense") { EntryRow(entry: target) }
                 Section("Result") {
                     LabeledContent("Total bill", value: rupees(result.updated.splitTotal ?? 0))
+                    if let paid = current.contributed { LabeledContent("Others paid", value: rupees(paid)) }
                     LabeledContent("Your share", value: rupees(result.updated.amount ?? 0))
                     if !current.alreadyPaid {
                         LabeledContent("Each person owes you", value: rupees(result.owed.first?.amount ?? 0))
@@ -309,12 +323,19 @@ struct SplitSheet: View {
                 .contentTransition(.numericText()) // shares roll as you change the number of people
                 .animation(.snappy, value: current)
                 Section {
-                    Stepper("Split with \(current.others) other\(current.others == 1 ? "" : "s")", value: $request.others, in: 1...20)
-                    TextField("Names (optional), e.g. Rahul, Amit", text: $namesText)
-                    Toggle("They already paid their share", isOn: $request.alreadyPaid)
-                } footer: {
-                    Text(request.alreadyPaid ? "Only your share stays as spending."
-                         : "Each person gets a Lent entry, so the statement shows who owes you.")
+                    LabeledContent("Others paid ₹") {
+                        TextField("amount, if exact", text: $paidText).keyboardType(.decimalPad).multilineTextAlignment(.trailing)
+                    }
+                } footer: { Text("Fill this if they paid a specific amount. Leave it empty to split equally.") }
+                if current.contributed == nil {
+                    Section {
+                        Stepper("Split with \(current.others) other\(current.others == 1 ? "" : "s")", value: $request.others, in: 1...20)
+                        TextField("Names (optional), e.g. Rahul, Amit", text: $namesText)
+                        Toggle("They already paid their share", isOn: $request.alreadyPaid)
+                    } footer: {
+                        Text(request.alreadyPaid ? "Only your share stays as spending."
+                             : "Each person gets a Lent entry, so the statement shows who owes you.")
+                    }
                 }
             }
             .navigationTitle("Split Expense")
@@ -333,6 +354,12 @@ struct SplitSheet: View {
 struct EntryRow: View {
     let entry: Entry
     var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+        Text(RuleParser.emoji(for: entry.category)) // category icon; the category name is in the text below
+            .font(.title3)
+            .frame(width: 40, height: 40)
+            .background(.fill.tertiary, in: .rect(cornerRadius: 10))
+            .accessibilityHidden(true)
         VStack(alignment: .leading, spacing: 3) {
             HStack {
                 Text(entry.kind.label + (entry.person.isEmpty ? "" : " · \(entry.person)")).font(.headline)
@@ -351,6 +378,7 @@ struct EntryRow: View {
                 }.font(.caption.weight(.medium))
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
+        }
         }
     }
 }
@@ -387,7 +415,8 @@ struct EditView: View {
                         ForEach(Kind.allCases, id: \.self) { Text($0.label).tag($0) }
                     }
                     Picker("Category", selection: $entry.category) {
-                        ForEach(Array(Set(RuleParser.categoryNames + [entry.category])).sorted(), id: \.self) { Text($0).tag($0) }
+                        ForEach(RuleParser.categoryNames + (RuleParser.categoryNames.contains(entry.category) ? [] : [entry.category]),
+                                id: \.self) { Text("\(RuleParser.emoji(for: $0)) \($0)").tag($0) }
                     }
                     TextField("Payment method", text: $entry.method)
                     TextField("Person", text: $entry.person)

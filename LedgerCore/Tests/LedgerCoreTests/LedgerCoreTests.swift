@@ -9,7 +9,7 @@ final class LedgerCoreTests: XCTestCase {
 
     func testSimpleExpense() {
         let e = parse("1500 spend on snacks")
-        XCTAssertEqual(e.amount, 1500); XCTAssertEqual(e.kind, .expense); XCTAssertEqual(e.category, "Food")
+        XCTAssertEqual(e.amount, 1500); XCTAssertEqual(e.kind, .expense); XCTAssertEqual(e.category, "Dining Out")
         XCTAssertFalse(e.needsInput)
     }
 
@@ -52,7 +52,7 @@ final class LedgerCoreTests: XCTestCase {
                        parse("got 1000 back from Rahul"), parse("lent 300")]
         let text = Statement.text(for: now, entries: entries, calendar: cal)
         XCTAssertTrue(text.contains("STATEMENT: November 2026"))
-        XCTAssertTrue(text.contains("Food") && text.contains("₹1,500"))
+        XCTAssertTrue(text.contains("Dining Out") && text.contains("₹1,500"))
         XCTAssertTrue(text.contains("Rahul owes you ₹4,000"))
         XCTAssertTrue(text.contains("NEEDS INPUT (1)"))
         XCTAssertTrue(Statement.text(for: cal.date(byAdding: .month, value: -1, to: now)!, entries: entries, calendar: cal)
@@ -91,6 +91,35 @@ final class LedgerCoreTests: XCTestCase {
         XCTAssertEqual(again.amount, Decimal(string: "400")); XCTAssertTrue(none.isEmpty)
         var odd = outing; odd.amount = 1000
         XCTAssertEqual(Split.apply(SplitRequest(others: 2), to: odd).updated.amount, Decimal(string: "333.34"))
+    }
+
+    func testCategoriesAndIcons() {
+        XCTAssertEqual(parse("Paid 1500 for wifi bill").category, "Utilities")
+        XCTAssertEqual(parse("Spent 500 on dosa").category, "Dining Out")
+        XCTAssertEqual(parse("ordered pizza from zomato 450").category, "Food Delivery") // delivery beats dish
+        XCTAssertEqual(parse("amazon 2300 headphones").category, "Online Shopping")
+        XCTAssertEqual(parse("blinkit 640").category, "Groceries")
+        XCTAssertEqual(parse("electricity bill 1800").category, "Utilities")
+        XCTAssertEqual(parse("netflix 649").category, "Subscriptions")
+        XCTAssertEqual(RuleParser.emoji(for: "Utilities"), "💡")
+        XCTAssertEqual(RuleParser.emoji(for: "Bills"), "🧾") // old saved entries keep an icon
+        XCTAssertEqual(RuleParser.emoji(for: "Whatever"), "🏷️")
+    }
+
+    /// Your real case: wifi ₹1,500 already saved, then "he paid 700" means your share is ₹800.
+    func testRoommatePaidPartOfWifi() {
+        let wifi = parse("Paid 1500 for wifi bill"), dosa = parse("Spent 500 on dosa")
+        let r = Split.parse("Wifi bill split between roomate, he paid 700")!
+        XCTAssertEqual(r.names, ["Roomate"]); XCTAssertEqual(r.others, 1)
+        XCTAssertEqual(r.contributed, 700); XCTAssertNil(r.amount); XCTAssertTrue(r.alreadyPaid)
+        XCTAssertEqual(Split.target(for: r, in: [wifi, dosa])?.id, wifi.id) // existing bill, not a new ₹700 one
+        let (updated, owed) = Split.apply(r, to: wifi)
+        XCTAssertEqual(updated.amount, 800); XCTAssertEqual(updated.splitTotal, 1500); XCTAssertTrue(owed.isEmpty)
+
+        let half = Split.parse("roommate ne wifi ka aadha de diya")!
+        XCTAssertEqual(Split.apply(half, to: wifi).updated.amount, 750)
+        XCTAssertEqual(Split.apply(Split.parse("split wifi with roommate")!, to: wifi).updated.amount, 750)
+        XCTAssertNil(Split.parse("half kg tomatoes 40")) // "half" alone is not a split
     }
 
     func testDeleteCommands() {
