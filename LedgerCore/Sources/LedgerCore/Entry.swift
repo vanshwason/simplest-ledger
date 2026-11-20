@@ -40,6 +40,8 @@ public struct Entry: Codable, Identifiable, Equatable, Sendable {
     public var splitTotal: Decimal?
     /// Set on the "they owe you" entries a split creates, pointing at the split expense.
     public var splitOf: UUID?
+    /// Trip the entry belongs to, e.g. "Goa". Optional so ledgers saved before trips still load.
+    public var trip: String?
 
     public var needsInput: Bool { !question.isEmpty }
 

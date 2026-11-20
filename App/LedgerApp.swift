@@ -22,8 +22,10 @@ struct ContentView: View {
     @Environment(Store.self) private var store
     @State private var input = ""
     @State private var busy = false
-    @State private var onlyNeedsInput = false
+    @State private var filter = Filter.all
     @State private var search = ""
+    @State private var askTripName = false
+    @State private var tripName = ""
     @State private var editing: Entry?
     @State private var showStatement = false
     @State private var picker: PickerMode?
@@ -40,6 +42,7 @@ struct ContentView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     enum PickerMode: Identifiable { case csv, folder; var id: Self { self } }
+    enum Filter { case all, needsInput, trip }
 
     /// One motion style for the whole app: short and springy, or a plain fade with Reduce Motion on.
     private func animate(_ change: () -> Void) {
@@ -52,17 +55,49 @@ struct ContentView: View {
 
     private var shown: [Entry] {
         store.entries.filter { e in
-            (!onlyNeedsInput || e.needsInput) && (search.isEmpty
-                || [e.raw, e.category, e.person, e.method, e.note].contains { $0.localizedCaseInsensitiveContains(search) })
+            let inFilter = switch filter {
+            case .all: true
+            case .needsInput: e.needsInput
+            case .trip: e.trip != nil && e.trip == store.activeTrip
+            }
+            return inFilter && (search.isEmpty
+                || [e.raw, e.category, e.person, e.method, e.note, e.trip ?? ""].contains { $0.localizedCaseInsensitiveContains(search) })
+        }
+    }
+
+    private func startTrip(_ name: String) {
+        let clean = name.trimmingCharacters(in: .whitespaces)
+        animate { store.activeTrip = clean.isEmpty ? "Trip" : clean; filter = .trip }
+    }
+
+    private func endTrip() { animate { store.activeTrip = nil; if filter == .trip { filter = .all } } }
+
+    /// "🧳 Goa · ₹12,400 · End": the running trip, always one tap away.
+    @ViewBuilder private var tripBanner: some View {
+        if let trip = store.activeTrip {
+            HStack {
+                Text("🧳").font(.title3)
+                VStack(alignment: .leading) {
+                    Text(trip).font(.headline)
+                    Text("\(rupees(store.entries.spent(onTrip: trip))) spent · new entries go here")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .contentTransition(.numericText())
+                }
+                Spacer()
+                Button("End Trip", action: endTrip).buttonStyle(.bordered)
+            }
+            .transition(barTransition)
         }
     }
 
     var body: some View {
         NavigationStack {
             List(selection: $selection) {
-                Picker("Show", selection: $onlyNeedsInput.animation(reduceMotion ? .easeInOut(duration: 0.2) : .snappy)) {
-                    Text("All").tag(false)
-                    Text("Needs input (\(store.entries.filter(\.needsInput).count))").tag(true)
+                tripBanner
+                Picker("Show", selection: $filter.animation(reduceMotion ? .easeInOut(duration: 0.2) : .snappy)) {
+                    Text("All").tag(Filter.all)
+                    Text("Needs input (\(store.entries.filter(\.needsInput).count))").tag(Filter.needsInput)
+                    if store.activeTrip != nil { Text("🧳 Trip").tag(Filter.trip) }
                 }
                 .pickerStyle(.segmented)
                 .listRowBackground(Color.clear)
@@ -143,6 +178,11 @@ struct ContentView: View {
                     } else {
                     Menu {
                         Button { animate { editMode = .active } } label: { Label("Select Entries", systemImage: "checkmark.circle") }
+                        if store.activeTrip == nil {
+                            Button { tripName = ""; askTripName = true } label: { Label("Start a Trip…", systemImage: "suitcase") }
+                        } else {
+                            Button(action: endTrip) { Label("End Trip", systemImage: "suitcase.fill") }
+                        }
                         ShareLink(item: CSVExport(entries: store.entries), preview: SharePreview("ledger.csv")) {
                             Label("Export CSV", systemImage: "square.and.arrow.up")
                         }
@@ -169,6 +209,11 @@ struct ContentView: View {
                     store.error = error.localizedDescription
                 }
             }
+            .alert("Start a Trip", isPresented: $askTripName) {
+                TextField("Where? e.g. Goa", text: $tripName)
+                Button("Start") { startTrip(tripName) }
+                Button("Cancel", role: .cancel) {}
+            } message: { Text("Everything you add until you end it is grouped under this trip.") }
             .alert("Problem", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
                 Button("OK") {}
             } message: { Text(store.error ?? "") }
@@ -184,6 +229,7 @@ struct ContentView: View {
                 let args = ProcessInfo.processInfo.arguments
                 if let i = args.firstIndex(of: "-add"), i + 1 < args.count { input = args[i + 1]; add() }
                 showStatement = args.contains("-statement")
+                if args.contains("-edit-first") { editing = store.entries.first(where: \.needsInput) ?? store.entries.first }
             }
         }
     }
@@ -243,11 +289,16 @@ struct ContentView: View {
         input = ""; busy = true
         Task {
             for line in lines {
+                switch TripCommand.parse(line) {
+                case .start(let name)?: startTrip(name); continue
+                case .end?: endTrip(); continue
+                case nil: break
+                }
                 // "delete all test entries" only selects; you confirm with the Delete button.
                 if let request = DeleteCommand.parse(line) {
                     let ids = DeleteCommand.matches(request, in: store.entries)
                     if ids.isEmpty { store.error = "No entries match “\(line)”." } else {
-                        animate { onlyNeedsInput = false; search = ""; selection = Set(ids); editMode = .active }
+                        animate { filter = .all; search = ""; selection = Set(ids); editMode = .active }
                     }
                     continue
                 }
@@ -282,75 +333,6 @@ struct PendingSplit: Identifiable {
     var target: Entry
 }
 
-/// Confirms a split before anything changes, since it rewrites an existing entry.
-struct SplitSheet: View {
-    @Environment(Store.self) private var store
-    @Environment(\.dismiss) private var dismiss
-    let target: Entry
-    @State private var request: SplitRequest
-    @State private var namesText: String
-    @State private var paidText: String
-
-    init(pending: PendingSplit) {
-        target = pending.target
-        _request = State(initialValue: pending.request)
-        _namesText = State(initialValue: pending.request.names.joined(separator: ", "))
-        _paidText = State(initialValue: pending.request.contributed.map { "\($0)" } ?? "")
-    }
-
-    private var current: SplitRequest {
-        var r = request
-        r.names = namesText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-        r.others = max(r.others, r.names.count)
-        r.contributed = Decimal(string: paidText.replacingOccurrences(of: ",", with: ""))
-        if r.contributed != nil { r.alreadyPaid = true }
-        return r
-    }
-
-    var body: some View {
-        let result = Split.apply(current, to: target)
-        NavigationStack {
-            Form {
-                Section("Expense") { EntryRow(entry: target) }
-                Section("Result") {
-                    LabeledContent("Total bill", value: rupees(result.updated.splitTotal ?? 0))
-                    if let paid = current.contributed { LabeledContent("Others paid", value: rupees(paid)) }
-                    LabeledContent("Your share", value: rupees(result.updated.amount ?? 0))
-                    if !current.alreadyPaid {
-                        LabeledContent("Each person owes you", value: rupees(result.owed.first?.amount ?? 0))
-                    }
-                }
-                .contentTransition(.numericText()) // shares roll as you change the number of people
-                .animation(.snappy, value: current)
-                Section {
-                    LabeledContent("Others paid ₹") {
-                        TextField("amount, if exact", text: $paidText).keyboardType(.decimalPad).multilineTextAlignment(.trailing)
-                    }
-                } footer: { Text("Fill this if they paid a specific amount. Leave it empty to split equally.") }
-                if current.contributed == nil {
-                    Section {
-                        Stepper("Split with \(current.others) other\(current.others == 1 ? "" : "s")", value: $request.others, in: 1...20)
-                        TextField("Names (optional), e.g. Rahul, Amit", text: $namesText)
-                        Toggle("They already paid their share", isOn: $request.alreadyPaid)
-                    } footer: {
-                        Text(request.alreadyPaid ? "Only your share stays as spending."
-                             : "Each person gets a Lent entry, so the statement shows who owes you.")
-                    }
-                }
-            }
-            .navigationTitle("Split Expense")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Split") { withAnimation(.snappy) { store.applySplit(current, to: target) }; dismiss() }.bold()
-                }
-            }
-        }
-        .presentationDetents([.medium, .large])
-    }
-}
-
 struct EntryRow: View {
     let entry: Entry
     var body: some View {
@@ -368,7 +350,8 @@ struct EntryRow: View {
                 Text((entry.kind.isIn ? "+" : "") + (entry.amount.map(rupees) ?? "?")).font(.headline.monospacedDigit())
                     .contentTransition(.numericText()) // e.g. ₹1,200 rolls down to ₹300 after a split
             }
-            Text([entry.category, entry.method, entry.date.formatted(.dateTime.day().month().year().locale(english))]
+            Text([entry.category, entry.method, entry.trip.map { "🧳 \($0)" } ?? "",
+                  entry.date.formatted(.dateTime.day().month().year().locale(english))]
                 .filter { !$0.isEmpty }.joined(separator: " · "))
                 .font(.caption).foregroundStyle(.secondary)
             Text(entry.displayText).font(.caption).foregroundStyle(.secondary).lineLimit(1)
@@ -380,82 +363,6 @@ struct EntryRow: View {
             }
         }
         }
-    }
-}
-
-struct EditView: View {
-    @Environment(Store.self) private var store
-    @Environment(\.dismiss) private var dismiss
-    @State private var entry: Entry
-    @State private var amountText: String
-    @State private var answer = ""
-    @State private var busy = false
-
-    init(entry: Entry) {
-        _entry = State(initialValue: entry)
-        _amountText = State(initialValue: entry.amount.map { "\($0)" } ?? "")
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                if entry.needsInput {
-                    Section("Needs input") {
-                        Label { Text(entry.question) } icon: {
-                            Image(systemName: "questionmark.circle.fill").foregroundStyle(.orange)
-                        }
-                        TextField("Your answer", text: $answer)
-                        Button(busy ? "Reading…" : "Use answer", action: useAnswer).disabled(answer.isEmpty || busy)
-                    }
-                }
-                Section("Details") {
-                    TextField("Amount", text: $amountText).keyboardType(.decimalPad)
-                    if let total = entry.splitTotal { LabeledContent("Your share of", value: rupees(total)) }
-                    Picker("Type", selection: $entry.kind) {
-                        ForEach(Kind.allCases, id: \.self) { Text($0.label).tag($0) }
-                    }
-                    Picker("Category", selection: $entry.category) {
-                        ForEach(RuleParser.categoryNames + (RuleParser.categoryNames.contains(entry.category) ? [] : [entry.category]),
-                                id: \.self) { Text("\(RuleParser.emoji(for: $0)) \($0)").tag($0) }
-                    }
-                    TextField("Payment method", text: $entry.method)
-                    TextField("Person", text: $entry.person)
-                    TextField("Note", text: $entry.note)
-                    DatePicker("Date", selection: $entry.date, displayedComponents: .date)
-                }
-                Section("You typed") { Text(entry.raw) }
-            }
-            .navigationTitle("Entry")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) { Button("Save", action: save).bold() }
-            }
-        }
-    }
-
-    /// Re-reads what you typed plus your answer, keeping the original date and id.
-    private func useAnswer() {
-        // "Who was this with?" just needs the name; re-reading "Share of: …" text would turn it into a new expense.
-        if entry.kind.needsPerson && entry.person.isEmpty && entry.amount != nil {
-            entry.person = answer.trimmingCharacters(in: .whitespaces).capitalized
-            entry.question = entry.missingInfo(checkCategory: false); answer = ""
-            return
-        }
-        busy = true
-        Task {
-            var e = await SmartParser.parse(entry.raw + " " + answer)
-            e.id = entry.id; e.date = entry.date; e.raw = entry.raw + " (" + answer + ")"
-            e.splitTotal = entry.splitTotal; e.splitOf = entry.splitOf
-            entry = e; amountText = e.amount.map { "\($0)" } ?? ""; answer = ""; busy = false
-        }
-    }
-
-    private func save() {
-        entry.amount = Decimal(string: amountText.replacingOccurrences(of: ",", with: ""))
-        entry.question = entry.missingInfo(checkCategory: false)
-        withAnimation(.snappy) { store.update(entry) }
-        dismiss()
     }
 }
 

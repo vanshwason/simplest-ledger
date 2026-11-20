@@ -52,6 +52,12 @@ jobs:
           xcrun simctl launch "$DEVICE" app.simple.ledger -add "all entries were test entries please delete" && sleep 6
           xcrun simctl io "$DEVICE" screenshot shots/5-delete.png
           xcrun simctl terminate "$DEVICE" app.simple.ledger
+          xcrun simctl launch "$DEVICE" app.simple.ledger -add "$(printf 'going on goa trip\nhotel 5000\npaid 300 for something')" && sleep 6
+          xcrun simctl io "$DEVICE" screenshot shots/6-trip.png
+          xcrun simctl terminate "$DEVICE" app.simple.ledger
+          xcrun simctl launch "$DEVICE" app.simple.ledger -edit-first && sleep 6
+          xcrun simctl io "$DEVICE" screenshot shots/7-edit.png
+          xcrun simctl terminate "$DEVICE" app.simple.ledger
           xcrun simctl ui "$DEVICE" appearance dark
           xcrun simctl launch "$DEVICE" app.simple.ledger && sleep 6
           xcrun simctl io "$DEVICE" screenshot shots/3-dark.png

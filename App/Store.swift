@@ -24,7 +24,22 @@ final class Store {
         }
     }
 
-    func add(_ entry: Entry) { entries.append(entry); save() }
+    /// While a trip is on, every new entry is tagged with it.
+    var activeTrip: String? = UserDefaults.standard.string(forKey: "activeTrip") {
+        didSet { UserDefaults.standard.set(activeTrip, forKey: "activeTrip") }
+    }
+
+    /// People you've dealt with, most recent first, for one-tap picking.
+    var people: [String] {
+        var seen = Set<String>()
+        return entries.sorted { $0.date > $1.date }.map(\.person).filter { !$0.isEmpty && seen.insert($0.lowercased()).inserted }
+    }
+
+    func add(_ entry: Entry) {
+        var entry = entry
+        if entry.trip == nil { entry.trip = activeTrip }
+        entries.append(entry); save()
+    }
 
     func update(_ entry: Entry) {
         guard let i = entries.firstIndex(where: { $0.id == entry.id }) else { return }
@@ -38,8 +53,11 @@ final class Store {
         let base = entries.first { $0.id == target.id } ?? target
         let (updated, owed) = Split.apply(request, to: base)
         entries.removeAll { $0.splitOf == base.id }
-        if let i = entries.firstIndex(where: { $0.id == base.id }) { entries[i] = updated } else { entries.append(updated) }
-        entries += owed
+        if let i = entries.firstIndex(where: { $0.id == base.id }) { entries[i] = updated } else {
+            var bill = updated; if bill.trip == nil { bill.trip = activeTrip }
+            entries.append(bill)
+        }
+        entries += owed.map { var e = $0; e.trip = updated.trip ?? activeTrip; return e }
         save()
     }
 

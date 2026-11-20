@@ -122,6 +122,25 @@ final class LedgerCoreTests: XCTestCase {
         XCTAssertNil(Split.parse("half kg tomatoes 40")) // "half" alone is not a split
     }
 
+    func testTrips() {
+        XCTAssertEqual(TripCommand.parse("going on goa trip"), .start("Goa"))
+        XCTAssertEqual(TripCommand.parse("started manali trip"), .start("Manali"))
+        XCTAssertEqual(TripCommand.parse("trip shuru"), .start("Trip"))
+        XCTAssertEqual(TripCommand.parse("trip over"), .end)
+        XCTAssertEqual(TripCommand.parse("back from trip"), .end)
+        XCTAssertNil(TripCommand.parse("goa trip hotel 5000")) // a money entry, not a command
+        XCTAssertNil(TripCommand.parse("1500 spent on snacks"))
+
+        var hotel = parse("hotel 5000"); hotel.trip = "Goa"
+        var cab = parse("cab 800"); cab.trip = "Goa"
+        var lent = parse("lent 2000 to Rahul"); lent.trip = "Goa"
+        let home = parse("dosa 200")
+        let entries = [hotel, cab, lent, home]
+        XCTAssertEqual(entries.spent(onTrip: "Goa"), 5800) // loans aren't trip cost
+        XCTAssertTrue(Statement.text(for: now, entries: entries, calendar: cal).contains("Goa"))
+        XCTAssertEqual(try CSV.decode(CSV.encode(entries)).map(\.trip), ["Goa", "Goa", "Goa", nil])
+    }
+
     func testDeleteCommands() {
         var old = parse("1500 spent on snacks"); old.date = cal.date(byAdding: .day, value: -1, to: now)!
         let uber = parse("200 uber"), lent = parse("lent 5000 to Rahul")

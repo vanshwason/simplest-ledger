@@ -36,6 +36,12 @@ public enum Statement {
         breakdown("SPENDING BY CATEGORY", inMonth.filter { $0.kind == .expense }) { $0.category }
         breakdown("MONEY OUT BY PAYMENT METHOD", inMonth.filter { !$0.kind.isIn }) { $0.method.isEmpty ? "Not specified" : $0.method }
 
+        let trips = Set(inMonth.compactMap(\.trip)).sorted()
+        if !trips.isEmpty {
+            lines += ["", "TRIPS (your spending)"]
+            for t in trips { lines.append("  " + pad(t, 16) + rupees(entries.spent(onTrip: t))) }
+        }
+
         // Balances run across all history up to the end of this month.
         var balance: [String: Decimal] = [:]
         for e in entries where e.date < interval.end && !e.person.isEmpty {
