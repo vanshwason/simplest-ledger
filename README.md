@@ -13,6 +13,11 @@ salary 50000 credited
 - **Needs input:** if something is unclear (no amount, a loan with no name, an unknown category), the entry is flagged with a question. Tap it, answer, and the app reads it again.
 - **Statement:** a plain-English monthly statement with totals, a breakdown by category and by payment method, and who owes whom. Copy or share it.
 - **Several entries at once:** put one entry per line.
+- **Split a bill later:** type it in the same box. The app finds the expense and shows a confirm sheet before changing anything:
+  - `split the outing with 3 people`: finds the "outing" expense. Your share becomes the expense, and each person gets a Lent entry (names asked for in Needs input).
+  - `3 logo ne contribute kar diya outing ka`: they already paid, so only your share stays.
+  - `split 1200 dinner with Rahul, Amit and Neha`: no ₹1,200 expense yet, so it adds the bill and splits it.
+  - Splitting the same expense again replaces the old split. Long-press any expense and choose **Split…** to do it by hand.
 
 ## Where your data lives
 

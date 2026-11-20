@@ -18,7 +18,7 @@ public enum RuleParser {
         ("Salary", ["salary", "paycheck", "stipend"]),
         ("Gift", ["gift"]),
     ]
-    public static var categoryNames: [String] { categories.map(\.name) + ["Loan", "Income", "Other"] }
+    public static var categoryNames: [String] { categories.map(\.name) + ["Loan", "Income", "Split", "Other"] }
 
     public static let methods: [(name: String, words: [String])] = [
         ("Credit Card", ["credit", "cc"]),

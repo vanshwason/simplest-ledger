@@ -36,6 +36,10 @@ public struct Entry: Codable, Identifiable, Equatable, Sendable {
     public var note: String
     /// Non-empty while the entry needs more input from you.
     public var question: String
+    /// Set on an expense you split: the full bill before your share was taken out.
+    public var splitTotal: Decimal?
+    /// Set on the "they owe you" entries a split creates, pointing at the split expense.
+    public var splitOf: UUID?
 
     public var needsInput: Bool { !question.isEmpty }
 

@@ -27,6 +27,7 @@ struct ContentView: View {
     @State private var editing: Entry?
     @State private var showStatement = false
     @State private var picker: PickerMode?
+    @State private var splitting: PendingSplit?
     @FocusState private var inputFocused: Bool
 
     enum PickerMode: Identifiable { case csv, folder; var id: Self { self } }
@@ -52,6 +53,11 @@ struct ContentView: View {
                     Button { editing = e } label: { EntryRow(entry: e) }.tint(.primary)
                         .contextMenu { // long-press actions, as in Chat Backup Browser's mobile UI
                             Button { editing = e } label: { Label("Edit", systemImage: "pencil") }
+                            if e.kind == .expense {
+                                Button { splitting = PendingSplit(request: SplitRequest(), target: e) } label: {
+                                    Label("Split…", systemImage: "person.2")
+                                }
+                            }
                             Button { UIPasteboard.general.string = e.raw } label: { Label("Copy Text", systemImage: "doc.on.doc") }
                             Button(role: .destructive) { store.delete(ids: [e.id]) } label: { Label("Delete", systemImage: "trash") }
                         }
@@ -69,7 +75,9 @@ struct ContentView: View {
             .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .automatic))
             .safeAreaBar(edge: .bottom) { inputBar } // safeAreaBar adds the scroll edge fade under the glass
             .onAppear { inputFocused = true }
-            .onChange(of: showStatement || editing != nil || picker != nil) { _, open in if open { inputFocused = false } }
+            .onChange(of: showStatement || editing != nil || picker != nil || splitting != nil) { _, open in
+                if open { inputFocused = false }
+            }
             .navigationTitle("Ledger")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { Button("Statement") { showStatement = true } }
@@ -88,6 +96,7 @@ struct ContentView: View {
             }
             .sheet(item: $editing) { EditView(entry: $0) }
             .sheet(isPresented: $showStatement) { StatementView() }
+            .sheet(item: $splitting) { SplitSheet(pending: $0) }
             .fileImporter(isPresented: Binding(get: { picker != nil }, set: { if !$0 { picker = nil } }),
                           allowedContentTypes: picker == .folder ? [.folder] : [.commaSeparatedText, .plainText]) { result in
                 let mode = picker
@@ -146,9 +155,85 @@ struct ContentView: View {
         guard !lines.isEmpty else { return }
         input = ""; busy = true
         Task {
-            for line in lines { store.add(await SmartParser.parse(line)) }
+            for line in lines {
+                guard let request = Split.parse(line) else { store.add(await SmartParser.parse(line)); continue }
+                // A split line edits an earlier expense, or adds the bill first when it names a new amount.
+                if let target = Split.target(for: request, in: store.entries) {
+                    splitting = PendingSplit(request: request, target: target)
+                } else if request.amount != nil {
+                    var bill = await SmartParser.parse(line)
+                    bill.kind = .expense; bill.person = ""
+                    if bill.category == "Loan" { bill.category = "Other" }
+                    bill.question = bill.missingInfo()
+                    store.add(bill)
+                    splitting = PendingSplit(request: request, target: bill)
+                } else {
+                    store.error = "There's no expense to split yet. Add the expense first, then split it."
+                }
+            }
             busy = false
         }
+    }
+}
+
+struct PendingSplit: Identifiable {
+    let id = UUID()
+    var request: SplitRequest
+    var target: Entry
+}
+
+/// Confirms a split before anything changes, since it rewrites an existing entry.
+struct SplitSheet: View {
+    @Environment(Store.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    let target: Entry
+    @State private var request: SplitRequest
+    @State private var namesText: String
+
+    init(pending: PendingSplit) {
+        target = pending.target
+        _request = State(initialValue: pending.request)
+        _namesText = State(initialValue: pending.request.names.joined(separator: ", "))
+    }
+
+    private var current: SplitRequest {
+        var r = request
+        r.names = namesText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        r.others = max(r.others, r.names.count)
+        return r
+    }
+
+    var body: some View {
+        let result = Split.apply(current, to: target)
+        NavigationStack {
+            Form {
+                Section("Expense") { EntryRow(entry: target) }
+                Section {
+                    Stepper("Split with \(current.others) other\(current.others == 1 ? "" : "s")", value: $request.others, in: 1...20)
+                    TextField("Names (optional), e.g. Rahul, Amit", text: $namesText)
+                    Toggle("They already paid their share", isOn: $request.alreadyPaid)
+                } footer: {
+                    Text(request.alreadyPaid ? "Only your share stays as spending."
+                         : "Each person gets a Lent entry, so the statement shows who owes you.")
+                }
+                Section("Result") {
+                    LabeledContent("Total bill", value: rupees(result.updated.splitTotal ?? 0))
+                    LabeledContent("Your share", value: rupees(result.updated.amount ?? 0))
+                    if !current.alreadyPaid {
+                        LabeledContent("Each person owes you", value: rupees(result.owed.first?.amount ?? 0))
+                    }
+                }
+            }
+            .navigationTitle("Split Expense")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Split") { store.applySplit(current, to: target); dismiss() }.bold()
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
     }
 }
 
@@ -202,6 +287,7 @@ struct EditView: View {
                 }
                 Section("Details") {
                     TextField("Amount", text: $amountText).keyboardType(.decimalPad)
+                    if let total = entry.splitTotal { LabeledContent("Your share of", value: rupees(total)) }
                     Picker("Type", selection: $entry.kind) {
                         ForEach(Kind.allCases, id: \.self) { Text($0.label).tag($0) }
                     }
@@ -226,10 +312,17 @@ struct EditView: View {
 
     /// Re-reads what you typed plus your answer, keeping the original date and id.
     private func useAnswer() {
+        // "Who was this with?" just needs the name; re-reading "Share of: …" text would turn it into a new expense.
+        if entry.kind.needsPerson && entry.person.isEmpty && entry.amount != nil {
+            entry.person = answer.trimmingCharacters(in: .whitespaces).capitalized
+            entry.question = entry.missingInfo(checkCategory: false); answer = ""
+            return
+        }
         busy = true
         Task {
             var e = await SmartParser.parse(entry.raw + " " + answer)
             e.id = entry.id; e.date = entry.date; e.raw = entry.raw + " (" + answer + ")"
+            e.splitTotal = entry.splitTotal; e.splitOf = entry.splitOf
             entry = e; amountText = e.amount.map { "\($0)" } ?? ""; answer = ""; busy = false
         }
     }

@@ -7,14 +7,16 @@ public enum CSV {
         public var errorDescription: String? { "CSV line \(line): \(problem). Nothing was imported." }
     }
 
-    static let header = ["id", "date", "amount", "kind", "category", "method", "person", "note", "question", "raw"]
+    static let header = ["id", "date", "amount", "kind", "category", "method", "person", "note", "question", "raw",
+                         "split_total", "split_of"]
 
     public static func encode(_ entries: [Entry]) -> String {
         let iso = ISO8601DateFormatter()
         var out = header.joined(separator: ",") + "\n"
         for e in entries {
             let fields = [e.id.uuidString, iso.string(from: e.date), e.amount.map { "\($0)" } ?? "", e.kind.rawValue,
-                          e.category, e.method, e.person, e.note, e.question, e.raw]
+                          e.category, e.method, e.person, e.note, e.question, e.raw,
+                          e.splitTotal.map { "\($0)" } ?? "", e.splitOf?.uuidString ?? ""]
             out += fields.map(quote).joined(separator: ",") + "\n"
         }
         return out
@@ -35,9 +37,12 @@ public enum CSV {
             let amountText = value("amount")
             let amount = amountText.isEmpty ? nil : Decimal(string: amountText)
             if !amountText.isEmpty && amount == nil { throw BadRow(line: line, problem: "bad amount '\(amountText)'") }
-            return Entry(id: UUID(uuidString: value("id")) ?? UUID(), date: date, raw: value("raw"), amount: amount,
-                         kind: kind, category: value("category"), method: value("method"), person: value("person"),
-                         note: value("note"), question: value("question"))
+            var entry = Entry(id: UUID(uuidString: value("id")) ?? UUID(), date: date, raw: value("raw"), amount: amount,
+                              kind: kind, category: value("category"), method: value("method"), person: value("person"),
+                              note: value("note"), question: value("question"))
+            entry.splitTotal = Decimal(string: value("split_total"))
+            entry.splitOf = UUID(uuidString: value("split_of"))
+            return entry
         }
     }
 

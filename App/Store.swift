@@ -33,6 +33,16 @@ final class Store {
 
     func delete(ids: [UUID]) { entries.removeAll { ids.contains($0.id) }; save() }
 
+    /// Splitting again replaces the earlier shares, so a later "it was 4 of us" edits instead of piling up.
+    func applySplit(_ request: SplitRequest, to target: Entry) {
+        let base = entries.first { $0.id == target.id } ?? target
+        let (updated, owed) = Split.apply(request, to: base)
+        entries.removeAll { $0.splitOf == base.id }
+        if let i = entries.firstIndex(where: { $0.id == base.id }) { entries[i] = updated } else { entries.append(updated) }
+        entries += owed
+        save()
+    }
+
     /// Adds new rows and overwrites rows with the same id.
     func importCSV(_ text: String) throws {
         for e in try CSV.decode(text) {

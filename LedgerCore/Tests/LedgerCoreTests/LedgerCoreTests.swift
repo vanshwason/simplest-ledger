@@ -59,12 +59,48 @@ final class LedgerCoreTests: XCTestCase {
             .contains("No entries this month."))
     }
 
+    func testSplitParsing() {
+        XCTAssertNil(Split.parse("1500 spent on snacks"))
+        XCTAssertNil(Split.parse("200 shared auto"))
+        XCTAssertEqual(Split.parse("split the outing with 3 people"),
+                       SplitRequest(hint: ["outing"], others: 3))
+        XCTAssertEqual(Split.parse("3 logo ne contribute kar diya outing ka"),
+                       SplitRequest(hint: ["outing"], others: 3, alreadyPaid: true))
+        XCTAssertEqual(Split.parse("split 1200 dinner with Rahul, Amit and Neha"),
+                       SplitRequest(hint: ["dinner"], amount: 1200, names: ["Rahul", "Amit", "Neha"], others: 3))
+        XCTAssertEqual(Split.parse("split it between 4 of us")?.others, 3)
+    }
+
+    func testSplitTargetAndApply() {
+        var outing = parse("1200 spent on outing by credit card"); outing.date = now.addingTimeInterval(-3600)
+        let snacks = parse("100 snacks")
+        let entries = [outing, snacks]
+        let request = Split.parse("split the outing with 3 people")!
+        XCTAssertEqual(Split.target(for: request, in: entries)?.id, outing.id) // word match beats "latest"
+        XCTAssertNil(Split.target(for: Split.parse("split 999 dinner with Rahul")!, in: entries)) // new bill
+        XCTAssertEqual(Split.target(for: Split.parse("split it with Rahul")!, in: entries)?.id, snacks.id)
+
+        let (updated, owed) = Split.apply(request, to: outing)
+        XCTAssertEqual(updated.amount, 300); XCTAssertEqual(updated.splitTotal, 1200)
+        XCTAssertEqual(owed.count, 3); XCTAssertEqual(owed[0].amount, 300); XCTAssertEqual(owed[0].kind, .lent)
+        XCTAssertEqual(owed[0].splitOf, outing.id); XCTAssertEqual(owed[0].method, "Credit Card")
+        XCTAssertEqual(owed[0].question, "Who owes you this share?")
+
+        // Re-splitting uses the original bill, not your current share; rounding paisa stays with you.
+        let (again, none) = Split.apply(SplitRequest(others: 2, alreadyPaid: true), to: updated)
+        XCTAssertEqual(again.amount, Decimal(string: "400")); XCTAssertTrue(none.isEmpty)
+        var odd = outing; odd.amount = 1000
+        XCTAssertEqual(Split.apply(SplitRequest(others: 2), to: odd).updated.amount, Decimal(string: "333.34"))
+    }
+
     func testCSVRoundTrip() throws {
         var e = parse("1500 spent on snacks")
         e.note = "chips, \"lays\"\nand cola"
+        e.splitTotal = 4500; e.splitOf = UUID()
         let back = try CSV.decode(CSV.encode([e, parse("lent 2000")]))
         XCTAssertEqual(back.count, 2)
         XCTAssertEqual(back[0].note, e.note); XCTAssertEqual(back[0].id, e.id); XCTAssertEqual(back[0].amount, 1500)
+        XCTAssertEqual(back[0].splitTotal, 4500); XCTAssertEqual(back[0].splitOf, e.splitOf); XCTAssertNil(back[1].splitOf)
         XCTAssertEqual(abs(back[0].date.timeIntervalSince(e.date)) < 1, true)
         XCTAssertThrowsError(try CSV.decode("date,kind\nnot-a-date,expense"))
     }

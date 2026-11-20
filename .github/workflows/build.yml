@@ -39,12 +39,15 @@ jobs:
           xcrun simctl boot "$DEVICE" && xcrun simctl bootstatus "$DEVICE" -b
           xcrun simctl install "$DEVICE" simbuild/Build/Products/Debug-iphonesimulator/Ledger.app
           mkdir -p shots
-          LINES=$(printf '1500 spent on snacks via upi\n5000 rupees lent through credit card to Rahul\nsalary 50000 credited\npaid 300\ngot 2000 back from Rahul\nyesterday 1.5k uber')
+          LINES=$(printf '1500 spent on snacks via upi\n5000 rupees lent through credit card to Rahul\nsalary 50000 credited\npaid 300\ngot 2000 back from Rahul\nyesterday 1.5k uber\n1200 spent on outing by credit card')
           xcrun simctl launch "$DEVICE" app.simple.ledger -add "$LINES" && sleep 10
           xcrun simctl io "$DEVICE" screenshot shots/1-entries.png
           xcrun simctl terminate "$DEVICE" app.simple.ledger
           xcrun simctl launch "$DEVICE" app.simple.ledger -statement && sleep 6
           xcrun simctl io "$DEVICE" screenshot shots/2-statement.png
+          xcrun simctl terminate "$DEVICE" app.simple.ledger
+          xcrun simctl launch "$DEVICE" app.simple.ledger -add "split the outing with Rahul, Amit and Neha" && sleep 6
+          xcrun simctl io "$DEVICE" screenshot shots/4-split.png
           xcrun simctl terminate "$DEVICE" app.simple.ledger
           xcrun simctl ui "$DEVICE" appearance dark
           xcrun simctl launch "$DEVICE" app.simple.ledger && sleep 6
