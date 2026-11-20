@@ -49,6 +49,9 @@ jobs:
           xcrun simctl launch "$DEVICE" app.simple.ledger -add "split the outing with Rahul, Amit and Neha" && sleep 6
           xcrun simctl io "$DEVICE" screenshot shots/4-split.png
           xcrun simctl terminate "$DEVICE" app.simple.ledger
+          xcrun simctl launch "$DEVICE" app.simple.ledger -add "all entries were test entries please delete" && sleep 6
+          xcrun simctl io "$DEVICE" screenshot shots/5-delete.png
+          xcrun simctl terminate "$DEVICE" app.simple.ledger
           xcrun simctl ui "$DEVICE" appearance dark
           xcrun simctl launch "$DEVICE" app.simple.ledger && sleep 6
           xcrun simctl io "$DEVICE" screenshot shots/3-dark.png

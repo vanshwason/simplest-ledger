@@ -20,6 +20,8 @@ struct AIEntry {
     var person: String
     @Guide(description: "A short English note, for example 'snacks' or 'cab to office'.")
     var note: String
+    @Guide(description: "The whole input rewritten as one short plain-English sentence, e.g. 'Spent 1500 on snacks via UPI'.")
+    var english: String
 }
 
 /// Rules first (instant, offline), then Apple's on-device model refines when it is available.
@@ -33,6 +35,11 @@ enum SmartParser {
             if entry.method.isEmpty, ai.method != "Unknown" { entry.method = ai.method }
             if !ai.person.isEmpty { entry.person = ai.person }
             entry.note = ai.note
+            // Hindi typed or dictated: keep your words in `raw`, show this English sentence instead.
+            if entry.displayText == entry.raw, !ai.english.isEmpty,
+               text.unicodeScalars.contains(where: { $0.properties.isAlphabetic && $0.value >= 0x250 }) {
+                entry.note = ai.english
+            }
         }
         entry.question = entry.missingInfo()
         return entry

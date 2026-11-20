@@ -93,6 +93,31 @@ final class LedgerCoreTests: XCTestCase {
         XCTAssertEqual(Split.apply(SplitRequest(others: 2), to: odd).updated.amount, Decimal(string: "333.34"))
     }
 
+    func testDeleteCommands() {
+        var old = parse("1500 spent on snacks"); old.date = cal.date(byAdding: .day, value: -1, to: now)!
+        let uber = parse("200 uber"), lent = parse("lent 5000 to Rahul")
+        let entries = [old, uber, lent]
+        func ids(_ s: String) -> Set<UUID> { Set(DeleteCommand.matches(DeleteCommand.parse(s)!, in: entries, now: now, calendar: cal)) }
+
+        XCTAssertNil(DeleteCommand.parse("1500 spent on snacks"))
+        XCTAssertNil(DeleteCommand.parse("cleared credit card bill 5000"))
+        XCTAssertEqual(ids("all entries were test entries please delete"), [old.id, uber.id, lent.id])
+        XCTAssertEqual(ids("sab entries hata do"), [old.id, uber.id, lent.id])
+        XCTAssertEqual(ids("delete the snacks entry"), [old.id])
+        XCTAssertEqual(ids("delete today's entries"), [uber.id, lent.id])
+        XCTAssertEqual(ids("remove the 5000 one"), [lent.id])
+        XCTAssertEqual(ids("delete all rahul entries"), [lent.id])
+        XCTAssertEqual(ids("delete that").count, 1)
+    }
+
+    func testDisplayTextIsEnglish() {
+        var hindi = Entry(date: now, raw: "स्नैक्स पर 1500 खर्च किए", amount: 1500)
+        XCTAssertEqual(hindi.displayText, hindi.raw) // no English yet
+        hindi.note = "Spent 1500 on snacks"
+        XCTAssertEqual(hindi.displayText, "Spent 1500 on snacks")
+        XCTAssertEqual(parse("₹1500 snacks").displayText, "₹1500 snacks")
+    }
+
     func testCSVRoundTrip() throws {
         var e = parse("1500 spent on snacks")
         e.note = "chips, \"lays\"\nand cola"

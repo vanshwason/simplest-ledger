@@ -57,7 +57,7 @@ public enum Statement {
         let open = inMonth.filter(\.needsInput)
         if !open.isEmpty {
             lines += ["", "NEEDS INPUT (\(open.count))"]
-            for e in open { lines.append("  \"\(e.raw)\": \(e.question)") }
+            for e in open { lines.append("  \"\(e.displayText)\": \(e.question)") }
         }
 
         fmt.dateFormat = "dd MMM"

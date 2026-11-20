@@ -28,6 +28,9 @@ struct ContentView: View {
     @State private var showStatement = false
     @State private var picker: PickerMode?
     @State private var splitting: PendingSplit?
+    @State private var editMode: EditMode = .inactive
+    @State private var selection = Set<UUID>()
+    @State private var confirmDelete = false
     @FocusState private var inputFocused: Bool
 
     enum PickerMode: Identifiable { case csv, folder; var id: Self { self } }
@@ -41,7 +44,7 @@ struct ContentView: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            List(selection: $selection) {
                 Picker("Show", selection: $onlyNeedsInput) {
                     Text("All").tag(false)
                     Text("Needs input (\(store.entries.filter(\.needsInput).count))").tag(true)
@@ -50,9 +53,15 @@ struct ContentView: View {
                 .listRowBackground(Color.clear)
 
                 ForEach(shown) { e in
-                    Button { editing = e } label: { EntryRow(entry: e) }.tint(.primary)
+                    Group {
+                        if editMode.isEditing { EntryRow(entry: e) } // tap selects while selecting
+                        else { Button { editing = e } label: { EntryRow(entry: e) }.tint(.primary) }
+                    }
                         .contextMenu { // long-press actions, as in Chat Backup Browser's mobile UI
                             Button { editing = e } label: { Label("Edit", systemImage: "pencil") }
+                            Button { selection = [e.id]; editMode = .active } label: {
+                                Label("Select", systemImage: "checkmark.circle")
+                            }
                             if e.kind == .expense {
                                 Button { splitting = PendingSplit(request: SplitRequest(), target: e) } label: {
                                     Label("Split…", systemImage: "person.2")
@@ -64,6 +73,7 @@ struct ContentView: View {
                 }
                 .onDelete { offsets in store.delete(ids: offsets.map { shown[$0].id }) }
             }
+            .environment(\.editMode, $editMode)
             .overlay {
                 if store.entries.isEmpty {
                     ContentUnavailableView("No entries yet", systemImage: "text.bubble",
@@ -73,16 +83,29 @@ struct ContentView: View {
             .scrollDismissesKeyboard(.interactively)
             // Search sits under the title so the bottom edge belongs to the input bar.
             .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .automatic))
-            .safeAreaBar(edge: .bottom) { inputBar } // safeAreaBar adds the scroll edge fade under the glass
+            .safeAreaBar(edge: .bottom) { // safeAreaBar adds the scroll edge fade under the glass
+                if editMode.isEditing { deleteBar } else { inputBar }
+            }
             .onAppear { inputFocused = true }
-            .onChange(of: showStatement || editing != nil || picker != nil || splitting != nil) { _, open in
+            .onChange(of: showStatement || editing != nil || picker != nil || splitting != nil || editMode.isEditing) { _, open in
                 if open { inputFocused = false }
             }
             .navigationTitle("Ledger")
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) { Button("Statement") { showStatement = true } }
+                ToolbarItem(placement: .topBarLeading) {
+                    if editMode.isEditing {
+                        let allSelected = !shown.isEmpty && selection.count == shown.count
+                        Button(allSelected ? "Deselect All" : "Select All") { selection = allSelected ? [] : Set(shown.map(\.id)) }
+                    } else {
+                        Button("Statement") { showStatement = true }
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
+                    if editMode.isEditing {
+                        Button("Done") { editMode = .inactive; selection = [] }.bold()
+                    } else {
                     Menu {
+                        Button { editMode = .active } label: { Label("Select Entries", systemImage: "checkmark.circle") }
                         ShareLink(item: CSVExport(entries: store.entries), preview: SharePreview("ledger.csv")) {
                             Label("Export CSV", systemImage: "square.and.arrow.up")
                         }
@@ -92,6 +115,7 @@ struct ContentView: View {
                                   systemImage: "externaldrive")
                         }
                     } label: { Image(systemName: "ellipsis.circle") }
+                    }
                 }
             }
             .sheet(item: $editing) { EditView(entry: $0) }
@@ -150,12 +174,40 @@ struct ContentView: View {
         }
     }
 
+    /// Replaces the input bar while selecting. Deleting always asks first.
+    private var deleteBar: some View {
+        Button(role: .destructive) { confirmDelete = true } label: {
+            Text(selection.isEmpty ? "Select entries to delete"
+                 : "Delete \(selection.count) \(selection.count == 1 ? "Entry" : "Entries")")
+                .bold().frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.glassProminent)
+        .tint(.red)
+        .controlSize(.large)
+        .disabled(selection.isEmpty)
+        .padding(.horizontal).padding(.bottom, 8)
+        .confirmationDialog("Delete \(selection.count) \(selection.count == 1 ? "entry" : "entries")? This can't be undone.",
+                            isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                store.delete(ids: Array(selection)); selection = []; editMode = .inactive
+            }
+        }
+    }
+
     private func add() {
         let lines = input.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         guard !lines.isEmpty else { return }
         input = ""; busy = true
         Task {
             for line in lines {
+                // "delete all test entries" only selects; you confirm with the Delete button.
+                if let request = DeleteCommand.parse(line) {
+                    let ids = DeleteCommand.matches(request, in: store.entries)
+                    if ids.isEmpty { store.error = "No entries match “\(line)”." } else {
+                        onlyNeedsInput = false; search = ""; selection = Set(ids); editMode = .active
+                    }
+                    continue
+                }
                 guard let request = Split.parse(line) else { store.add(await SmartParser.parse(line)); continue }
                 // A split line edits an earlier expense, or adds the bill first when it names a new amount.
                 if let target = Split.target(for: request, in: store.entries) {
@@ -250,7 +302,7 @@ struct EntryRow: View {
             Text([entry.category, entry.method, entry.date.formatted(.dateTime.day().month().year().locale(english))]
                 .filter { !$0.isEmpty }.joined(separator: " · "))
                 .font(.caption).foregroundStyle(.secondary)
-            Text(entry.raw).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            Text(entry.displayText).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             if entry.needsInput {
                 Label { Text(entry.question) } icon: {
                     Image(systemName: "questionmark.circle.fill").foregroundStyle(.orange)

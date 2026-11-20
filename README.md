@@ -17,6 +17,8 @@ salary 50000 credited
   - `split the outing with 3 people`: finds the "outing" expense. Your share becomes the expense, and each person gets a Lent entry (names asked for in Needs input).
   - `3 logo ne contribute kar diya outing ka`: they already paid, so only your share stays.
   - `split 1200 dinner with Rahul, Amit and Neha`: no ₹1,200 expense yet, so it adds the bill and splits it.
+- **Delete several at once:** tap **⋯**, then **Select Entries**, tick them, and tap **Delete**. Or type it: `all entries were test entries please delete`, `delete today's entries`, `delete the snacks entry`, `sab entries hata do`. Typed deletes only *select* the entries; nothing is deleted until you confirm.
+- **English output:** if you type or dictate in Hindi script, the list and statement show an English version (needs the on-device AI). What you typed is kept too.
   - Splitting the same expense again replaces the old split. Long-press any expense and choose **Split…** to do it by hand.
 
 ## Where your data lives

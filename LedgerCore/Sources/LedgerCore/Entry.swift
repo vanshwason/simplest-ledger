@@ -43,6 +43,12 @@ public struct Entry: Codable, Identifiable, Equatable, Sendable {
 
     public var needsInput: Bool { !question.isEmpty }
 
+    /// What to show: your words, or the English version when you typed or dictated in another script (e.g. Hindi).
+    public var displayText: String {
+        let nonLatin = raw.unicodeScalars.contains { $0.properties.isAlphabetic && $0.value >= 0x250 }
+        return nonLatin && !note.isEmpty ? note : raw
+    }
+
     public init(id: UUID = UUID(), date: Date, raw: String, amount: Decimal?, kind: Kind = .expense,
                 category: String = "Other", method: String = "", person: String = "", note: String = "",
                 question: String = "") {
