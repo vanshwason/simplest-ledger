@@ -102,8 +102,8 @@ struct ContentView: View {
         }
     }
 
-    var body: some View {
-        NavigationStack {
+    /// The list with its toolbar and sheets; `body` adds the file pickers and dialogs (split so it type-checks).
+    private var content: some View {
             List(selection: $selection) {
                 tripBanner
                 Picker("Show", selection: $filter.animation(reduceMotion ? .easeInOut(duration: 0.2) : .snappy)) {
@@ -220,6 +220,11 @@ struct ContentView: View {
                     photoItem = nil
                 }
             }
+    }
+
+    var body: some View {
+        NavigationStack {
+            content
             .sheet(isPresented: $showSMS) { SMSSetupSheet() }
             .sheet(isPresented: $showHelp) { HelpSheet { input = $0; notice = nil; showHelp = false; inputFocused = true } }
             .fileImporter(isPresented: Binding(get: { picker != nil }, set: { if !$0 { picker = nil } }),
