@@ -58,6 +58,9 @@ jobs:
           xcrun simctl launch "$DEVICE" app.simple.ledger -edit-first && sleep 6
           xcrun simctl io "$DEVICE" screenshot shots/7-edit.png
           xcrun simctl terminate "$DEVICE" app.simple.ledger
+          xcrun simctl launch "$DEVICE" app.simple.ledger -add "delete the xyz entry" && sleep 6
+          xcrun simctl io "$DEVICE" screenshot shots/8-suggest.png
+          xcrun simctl terminate "$DEVICE" app.simple.ledger
           xcrun simctl ui "$DEVICE" appearance dark
           xcrun simctl launch "$DEVICE" app.simple.ledger && sleep 6
           xcrun simctl io "$DEVICE" screenshot shots/3-dark.png

@@ -26,6 +26,9 @@ struct ContentView: View {
     @State private var search = ""
     @State private var askTripName = false
     @State private var tripName = ""
+    @State private var notice: String? // shown above the text box when a command found nothing
+    @State private var noticeChips: [String] = []
+    @State private var showHelp = false
     @State private var editing: Entry?
     @State private var showStatement = false
     @State private var picker: PickerMode?
@@ -157,6 +160,7 @@ struct ContentView: View {
                 }
             }
             .onAppear { inputFocused = true }
+            .onChange(of: input) { if !input.isEmpty { notice = nil } } // typing replaces the fix-it hint
             .onChange(of: showStatement || editing != nil || picker != nil || splitting != nil || editMode.isEditing) { _, open in
                 if open { inputFocused = false }
             }
@@ -177,6 +181,7 @@ struct ContentView: View {
                         Button("Done") { animate { editMode = .inactive; selection = [] } }.bold()
                     } else {
                     Menu {
+                        Button { showHelp = true } label: { Label("What Can I Type?", systemImage: "questionmark.circle") }
                         Button { animate { editMode = .active } } label: { Label("Select Entries", systemImage: "checkmark.circle") }
                         if store.activeTrip == nil {
                             Button { tripName = ""; askTripName = true } label: { Label("Start a Trip…", systemImage: "suitcase") }
@@ -198,6 +203,7 @@ struct ContentView: View {
             .sheet(item: $editing) { EditView(entry: $0).navigationTransition(.zoom(sourceID: $0.id, in: zoom)) }
             .sheet(isPresented: $showStatement) { StatementView() }
             .sheet(item: $splitting) { SplitSheet(pending: $0) }
+            .sheet(isPresented: $showHelp) { HelpSheet { input = $0; notice = nil; showHelp = false; inputFocused = true } }
             .fileImporter(isPresented: Binding(get: { picker != nil }, set: { if !$0 { picker = nil } }),
                           allowedContentTypes: picker == .folder ? [.folder] : [.commaSeparatedText, .plainText]) { result in
                 let mode = picker
@@ -236,7 +242,28 @@ struct ContentView: View {
 
     /// The app's one custom glass surface: a floating input bar with the view's single prominent action.
     private var inputBar: some View {
-        GlassEffectContainer(spacing: 8) {
+        let suggestion = Suggest.forInput(input, entries: store.entries, activeTrip: store.activeTrip)
+        let chips = notice != nil ? noticeChips : (inputFocused ? suggestion.chips : [])
+        let label = notice ?? suggestion.didYouMean
+        return GlassEffectContainer(spacing: 8) {
+          VStack(alignment: .leading, spacing: 8) {
+            if let label {
+                Text(label).font(.footnote.weight(.medium))
+                    .padding(.horizontal, 12).padding(.vertical, 6)
+                    .glassEffect(.regular, in: .capsule)
+                    .transition(.opacity)
+            }
+            if !chips.isEmpty { // tap to fill the box; you still send it yourself
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(chips, id: \.self) { chip in
+                            Button(chip) { input = chip; notice = nil; inputFocused = true }
+                                .buttonStyle(.glass).controlSize(.small)
+                        }
+                    }
+                }
+                .transition(.opacity)
+            }
             HStack(alignment: .bottom, spacing: 8) {
                 TextField("e.g. 1500 spent on snacks", text: $input, axis: .vertical)
                     .lineLimit(1...6)
@@ -258,7 +285,9 @@ struct ContentView: View {
                 .disabled(busy || input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 .accessibilityLabel("Add entry")
             }
-            .padding(.horizontal).padding(.bottom, 8)
+          }
+          .padding(.horizontal).padding(.bottom, 8)
+          .animation(.snappy, value: chips)
         }
     }
 
@@ -297,7 +326,10 @@ struct ContentView: View {
                 // "delete all test entries" only selects; you confirm with the Delete button.
                 if let request = DeleteCommand.parse(line) {
                     let ids = DeleteCommand.matches(request, in: store.entries)
-                    if ids.isEmpty { store.error = "No entries match “\(line)”." } else {
+                    if ids.isEmpty {
+                        notice = "No entries match “\(line)”. Try one of these:"
+                        noticeChips = Suggest.fixes(forFailed: line, entries: store.entries)
+                    } else {
                         animate { filter = .all; search = ""; selection = Set(ids); editMode = .active }
                     }
                     continue
@@ -319,7 +351,8 @@ struct ContentView: View {
                     // Saved only if you tap Split (applySplit adds it); Cancel leaves no stray entry.
                     splitting = PendingSplit(request: request, target: bill)
                 } else {
-                    store.error = "There's no expense to split yet. Add the expense first, then split it."
+                    notice = "There's no expense to split yet. Try one of these:"
+                    noticeChips = Suggest.fixes(forFailed: line, entries: store.entries)
                 }
             }
             busy = false

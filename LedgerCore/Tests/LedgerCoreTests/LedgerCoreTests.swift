@@ -141,6 +141,24 @@ final class LedgerCoreTests: XCTestCase {
         XCTAssertEqual(try CSV.decode(CSV.encode(entries)).map(\.trip), ["Goa", "Goa", "Goa", nil])
     }
 
+    func testSuggestions() {
+        let entries = [parse("Paid 1500 for wifi bill")]
+        let empty = Suggest.forInput("", entries: entries, activeTrip: nil)
+        XCTAssertTrue(empty.chips.contains("split the wifi with 2 people")) // uses your latest expense
+        XCTAssertTrue(empty.chips.contains("going on goa trip"))
+        XCTAssertTrue(Suggest.forInput("", entries: entries, activeTrip: "Goa").chips.contains("trip over"))
+
+        XCTAssertEqual(Suggest.forInput("spl", entries: entries, activeTrip: nil).chips.first, "split the wifi with 2 people")
+        let typo = Suggest.forInput("splt outing 3", entries: entries, activeTrip: nil)
+        XCTAssertEqual(typo.didYouMean, "Did you mean split?")
+        XCTAssertEqual(Suggest.forInput("delte", entries: entries, activeTrip: nil).didYouMean, "Did you mean delete?")
+        XCTAssertTrue(Suggest.forInput("rent 15000", entries: entries, activeTrip: nil).chips.isEmpty) // money word, not a typo
+        XCTAssertTrue(Suggest.forInput("1500 snacks", entries: entries, activeTrip: nil).chips.isEmpty)
+
+        XCTAssertTrue(Suggest.fixes(forFailed: "delete the xyz entry", entries: entries).contains("delete the latest entry"))
+        XCTAssertEqual(Suggest.distance("splt", "split"), 1)
+    }
+
     func testDeleteCommands() {
         var old = parse("1500 spent on snacks"); old.date = cal.date(byAdding: .day, value: -1, to: now)!
         let uber = parse("200 uber"), lent = parse("lent 5000 to Rahul")

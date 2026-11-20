@@ -73,6 +73,40 @@ struct MultiChips: View {
     }
 }
 
+/// Everything you can type, one tappable example each. Tapping fills the text box.
+struct HelpSheet: View {
+    let use: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+    static let sections: [(title: String, examples: [String])] = [
+        ("Add money", ["1500 snacks via UPI", "uber 220 yesterday", "salary 50000 credited", "ordered pizza from zomato 450"]),
+        ("Lend and borrow", ["lent 2000 to Rahul", "borrowed 1000 from Amit", "got 2000 back from Rahul"]),
+        ("Split a bill", ["split the outing with 3 people", "split wifi, he paid 700", "roommate ne wifi ka aadha de diya",
+                          "split 1200 dinner with Rahul and Amit"]),
+        ("Trips", ["going on goa trip", "trip over"]),
+        ("Delete", ["delete the latest entry", "delete today's entries", "all entries were test entries, please delete"]),
+    ]
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(Self.sections, id: \.title) { section in
+                    Section(section.title) {
+                        ForEach(section.examples, id: \.self) { example in
+                            Button(example) { use(example) }.tint(.primary)
+                        }
+                    }
+                }
+                Section { Text("Several entries at once: put one per line. Deletes and splits always ask before changing anything.") }
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+            .navigationTitle("What Can I Type?")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+        }
+        .presentationDetents([.medium, .large])
+    }
+}
+
 /// Edit an entry by tapping: amount, a category tile, a person chip, a payment chip. Extras hide under "More".
 struct EditView: View {
     @Environment(Store.self) private var store
