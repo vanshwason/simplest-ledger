@@ -21,7 +21,7 @@ Amount, category and payment method are filled in for you. English, Hindi or Hin
 <tr>
 <td><img src="docs/screenshots/sms-entry.png" width="280" alt="Expense added from a bank SMS"></td>
 <td><h3>📩 Bank SMS, added for you</h3>
-A UPI or card debit arrives and it's in your ledger, tagged <b>SMS</b>. OTPs, offers and failed payments are skipped. One-time setup inside the app.</td>
+A UPI or card debit arrives and it's in your ledger, tagged <b>SMS</b>. OTPs, offers and failed payments are skipped. Any bank, any currency. <a href="#-bank-sms-setup-once-1-minute">One-time setup</a>.</td>
 </tr>
 <tr>
 <td><img src="docs/screenshots/split.png" width="280" alt="Split confirmation"><br><img src="docs/screenshots/after-split.png" width="280" alt="After the split"></td>
@@ -67,6 +67,21 @@ Plain text: by category, by payment method, who owes whom. Copy or share.</td>
 Re-install every 7 days (free Apple ID limit). Your data stays.
 
 **Works on** any iPhone with **iOS 26** (iPhone 11 or newer, SE 2nd gen or newer). Smarter parsing with Apple Intelligence on iPhone 15 Pro, all iPhone 16 and 17 models; other iPhones use the built-in offline parser. Tested on iPhone 16 Pro.
+
+## 📩 Bank SMS setup (once, 1 minute)
+
+iOS doesn't let apps read SMS, so a Shortcuts automation hands each message to the app. The app keeps only real transactions; chats, OTPs and offers are dropped.
+
+1. **Shortcuts** → **+** → **Automation** → **Message**.
+2. Change *Sender* to **Message contains**, and type **one space**. Every message has a space, so any bank and any currency works.
+
+   <img src="docs/shortcut/1-trigger.png" width="360" alt="When I receive a message where Message contains a space">
+3. Tap **Search** at the bottom, type **Ledger**, pick **Add to Ledger**. Set *Message* to the blue **Message**. Turn **Show When Run** off.
+
+   <img src="docs/shortcut/2-action.png" width="360" alt="Add to Ledger action with the message and Show When Run off">
+4. Tap **›** next to *where*: **Automation** on, **Confirm Before Run** off.
+
+On iOS 26: Shortcuts → **Automation** tab → **+** → **Message**, then the same settings, with **Run Immediately**.
 
 ---
 
