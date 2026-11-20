@@ -133,18 +133,22 @@ struct SMSSetupSheet: View {
                     Text("iPhone doesn't let any app read your messages. A one-time Shortcuts automation sends bank SMS to Simplest Ledger instead, in the background.")
                 }
 
-                // One broad automation is enough: the app ignores anything that isn't a bank transaction.
+                // One space matches every message: any bank, any currency. The app drops what isn't a transaction.
+                // A ready-made shortcut can't be shared: its action is tied to each person's sideloaded app ID.
                 Section {
-                    step(1, "Shortcuts → Automation → + → Message.")
-                    step(2, "Message Contains: Rs. Leave Sender empty.")
-                    step(3, "Run Immediately, Notify off. Next.")
-                    step(4, "Add Action: Add to Ledger. Message: Shortcut Input.")
+                    step(1, "Shortcuts → + → Automation → Message.")
+                    step(2, "Change Sender to Message contains. Type one space.")
+                    screenshot("ShortcutTrigger")
+                    step(3, "Search Ledger, add Add to Ledger. Message: the blue Message. Show When Run off.")
+                    screenshot("ShortcutAction")
+                    step(4, "Tap › next to where. Automation on, Confirm Before Run off.")
+                    screenshot("ShortcutRun")
                     Button { openURL(URL(string: "shortcuts://")!) } label: {
                         Label("Open Shortcuts", systemImage: "arrow.up.forward.app")
                     }
                     .buttonStyle(.glassProminent).tint(accent)
                 } header: { Text("One-time setup, about a minute") } footer: {
-                    Text("Your bank writes INR instead of Rs? Make a second one with INR. Chats and OTPs are ignored automatically.")
+                    Text("Chats and OTPs are ignored automatically. On iOS 26: Automation tab → + → Message, then Run Immediately.")
                 }
 
                 Section {
@@ -164,6 +168,10 @@ struct SMSSetupSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }
+    }
+
+    private func screenshot(_ name: String) -> some View {
+        Image(name).resizable().scaledToFit().clipShape(.rect(cornerRadius: 12)).accessibilityHidden(true) // steps say it in words
     }
 
     private func step(_ n: Int, _ text: String) -> some View {
