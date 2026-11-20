@@ -1,6 +1,6 @@
-# Ledger
+# Plain Ledger
 
-A one-box money ledger for iPhone. Type what happened, in English or Hinglish. The app works out the amount, type, category, payment method and person:
+A one-box money ledger for iPhone. Type it, or scan a receipt or payment screenshot (the receipt icon in the text box; read on-device, nothing uploaded). Type what happened, in English or Hinglish. The app works out the amount, type, category, payment method and person:
 
 ```
 1500 spent on snacks
