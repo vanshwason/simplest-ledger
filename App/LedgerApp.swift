@@ -23,7 +23,9 @@ let accent = Color(UIColor { $0.userInterfaceStyle == .dark
 struct ContentView: View {
     @Environment(Store.self) private var store
     @State private var input = ""
-    @State private var busy = false
+    @State private var queue: [QueuedLine] = [] // sent lines still being understood
+    @State private var working = false
+    @State private var scanning: QueuedLine? // receipt being read
     @State private var filter = Filter.all
     @State private var search = ""
     @State private var askTripName = false
@@ -110,6 +112,13 @@ struct ContentView: View {
                 .pickerStyle(.segmented)
                 .listRowBackground(Color.clear)
 
+                // Sent lines waiting to be understood; newest on top, each becomes its entry in place.
+                ForEach(([scanning].compactMap { $0 } + queue).reversed()) { line in
+                    ReadingRow(text: line.text)
+                        .selectionDisabled()
+                        .transition(barTransition)
+                }
+
                 ForEach(shown) { e in
                     Group {
                         if editMode.isEditing { EntryRow(entry: e) } // tap selects while selecting
@@ -146,7 +155,7 @@ struct ContentView: View {
             }
             .environment(\.editMode, $editMode)
             .overlay {
-                if store.entries.isEmpty {
+                if store.entries.isEmpty && queue.isEmpty && scanning == nil {
                     ContentUnavailableView("No entries yet", systemImage: "text.bubble",
                         description: Text("Type what happened below, like “1500 spent on snacks”. One entry per line. Anything unclear goes to Needs input."))
                         .transition(.opacity)
@@ -301,19 +310,15 @@ struct ContentView: View {
                 }
                 .padding(.leading, 16).padding(.trailing, 4)
                 .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 22))
-                Button(action: add) {
-                    if busy { ProgressView().transition(.scale.combined(with: .opacity)) } else {
-                        Image(systemName: "arrow.up").font(.body.bold())
-                            .symbolEffect(.bounce.up, value: added)
-                            .transition(.scale.combined(with: .opacity))
-                    }
+                Button(action: add) { // always ready: progress shows in the list, not here
+                    Image(systemName: "arrow.up").font(.body.bold())
+                        .symbolEffect(.bounce.up, value: added)
                 }
-                .animation(.snappy, value: busy)
                 .buttonStyle(.glassProminent)
                 .tint(accent)
                 .buttonBorderShape(.circle)
                 .controlSize(.large)
-                .disabled(busy || input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 .accessibilityLabel("Add entry")
             }
           }
@@ -346,63 +351,107 @@ struct ContentView: View {
     /// Reads the receipt on-device and puts a sentence in the box for you to check, then tap ↑.
     private func readReceipt(_ images: [CGImage]) {
         guard !images.isEmpty else { return }
-        busy = true
+        let placeholder = QueuedLine(text: "Scanned receipt")
+        animate { scanning = placeholder }
         Task {
-            if let sentence = await ReceiptText.sentence(from: images) {
+            let sentence = await ReceiptText.sentence(from: images)
+            animate { scanning = nil }
+            if let sentence {
                 input = sentence; inputFocused = true
             } else {
                 notice = "Couldn't find a total on that receipt. Type it instead, like “540 dominos”."
                 noticeChips = []
             }
-            busy = false
         }
     }
 
+    /// Sends right away: each line shows as a "Reading…" row while it's understood, and you can keep typing.
     private func add() {
         let lines = input.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         guard !lines.isEmpty else { return }
-        input = ""; busy = true
+        input = ""
+        animate { queue += lines.map { QueuedLine(text: $0) } }
+        processQueue()
+    }
+
+    /// Works through the queue one line at a time, in order, so a later "split" sees the earlier expense.
+    private func processQueue() {
+        guard !working else { return }
+        working = true
         Task {
-            for line in lines {
-                switch TripCommand.parse(line) {
-                case .start(let name)?: startTrip(name); continue
-                case .end?: endTrip(); continue
-                case nil: break
+            while let next = queue.first {
+                let entry = await handle(next.text)
+                animate { // the "Reading…" row turns into the real entry in one motion
+                    queue.removeAll { $0.id == next.id }
+                    if let entry { store.add(entry) }
                 }
-                // "delete all test entries" only selects; you confirm with the Delete button.
-                if let request = DeleteCommand.parse(line) {
-                    let ids = DeleteCommand.matches(request, in: store.entries)
-                    if ids.isEmpty {
-                        notice = "No entries match “\(line)”. Try one of these:"
-                        noticeChips = Suggest.fixes(forFailed: line, entries: store.entries)
-                    } else {
-                        animate { filter = .all; search = ""; selection = Set(ids); editMode = .active }
-                    }
-                    continue
-                }
-                guard let request = Split.parse(line) else {
-                    let entry = await SmartParser.parse(line)
-                    animate { store.add(entry) } // new row slides in at the top
-                    if entry.needsInput { flagged += 1 } else { added += 1 }
-                    continue
-                }
-                // A split line edits an earlier expense, or adds the bill first when it names a new amount.
-                if let target = Split.target(for: request, in: store.entries) {
-                    splitting = PendingSplit(request: request, target: target)
-                } else if request.amount != nil {
-                    var bill = await SmartParser.parse(line)
-                    bill.kind = .expense; bill.person = ""
-                    if bill.category == "Loan" { bill.category = "Other" }
-                    bill.question = bill.missingInfo()
-                    // Saved only if you tap Split (applySplit adds it); Cancel leaves no stray entry.
-                    splitting = PendingSplit(request: request, target: bill)
-                } else {
-                    notice = "There's no expense to split yet. Try one of these:"
-                    noticeChips = Suggest.fixes(forFailed: line, entries: store.entries)
-                }
+                if let entry { if entry.needsInput { flagged += 1 } else { added += 1 } }
             }
-            busy = false
+            working = false
         }
+    }
+
+    /// One line: a command (trip, delete, split) or a new entry to add, which it returns.
+    private func handle(_ line: String) async -> Entry? {
+        switch TripCommand.parse(line) {
+        case .start(let name)?: startTrip(name); return nil
+        case .end?: endTrip(); return nil
+        case nil: break
+        }
+        // "delete all test entries" only selects; you confirm with the Delete button.
+        if let request = DeleteCommand.parse(line) {
+            let ids = DeleteCommand.matches(request, in: store.entries)
+            if ids.isEmpty {
+                notice = "No entries match “\(line)”. Try one of these:"
+                noticeChips = Suggest.fixes(forFailed: line, entries: store.entries)
+            } else {
+                animate { filter = .all; search = ""; selection = Set(ids); editMode = .active }
+            }
+            return nil
+        }
+        guard let request = Split.parse(line) else { return await SmartParser.parse(line) }
+        // A split line edits an earlier expense, or adds the bill first when it names a new amount.
+        if let target = Split.target(for: request, in: store.entries) {
+            splitting = PendingSplit(request: request, target: target)
+        } else if request.amount != nil {
+            var bill = await SmartParser.parse(line)
+            bill.kind = .expense; bill.person = ""
+            if bill.category == "Loan" { bill.category = "Other" }
+            bill.question = bill.missingInfo()
+            // Saved only if you tap Split (applySplit adds it); Cancel leaves no stray entry.
+            splitting = PendingSplit(request: request, target: bill)
+        } else {
+            notice = "There's no expense to split yet. Try one of these:"
+            noticeChips = Suggest.fixes(forFailed: line, entries: store.entries)
+        }
+        return nil
+    }
+}
+
+struct QueuedLine: Identifiable {
+    let id = UUID()
+    let text: String
+}
+
+/// Placeholder row while a line (or a scanned receipt) is being understood.
+struct ReadingRow: View {
+    let text: String
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            ProgressView()
+                .frame(width: 40, height: 40)
+                .background(.fill.tertiary, in: .rect(cornerRadius: 10))
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Reading…").font(.headline).foregroundStyle(.secondary)
+                    .phaseAnimator(reduceMotion ? [1.0] : [0.45, 1.0]) { view, opacity in view.opacity(opacity) }
+                    animation: { _ in .easeInOut(duration: 0.8) }
+                Text(text).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Reading \(text)")
     }
 }
 

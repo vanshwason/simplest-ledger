@@ -18,15 +18,21 @@ while x > left:
 points.append((left, bottom))
 d.polygon(points, fill="#FFFFFF")
 
-# Stack of coins: a money mark that reads for any currency (no ₹ or $).
-cx, w, h, thick = S // 2, 230, 70, 34
-for base in [380, 340, 300]:  # bottom coin first, so upper coins overlap it
+# Gold coins: a money mark for any currency (no ₹ or $). Thin and slightly offset so they read as
+# coins, not poker chips (chips are thick, aligned and striped).
+w, h, thick = 210, 62, 16
+EDGE, FACE, RIM = "#B8860B", "#F4C430", "#FFE38A"
+for base, cx in [(400, 506), (378, 520), (356, 500), (334, 514)]:  # bottom coin first
     top_y = base - thick
-    d.rectangle((cx - w // 2, top_y + h // 2, cx + w // 2, base + h // 2), fill="#00876A")
-    d.ellipse((cx - w // 2, base, cx + w // 2, base + h), fill="#00876A")       # coin edge
-    d.ellipse((cx - w // 2, top_y, cx + w // 2, top_y + h), fill="#00A884")     # coin face
-face = 300 - thick  # top coin's face
-d.ellipse((cx - w // 2 + 34, face + 14, cx + w // 2 - 34, face + h - 14), outline="#7FE0C4", width=8)
+    d.rectangle((cx - w // 2, top_y + h // 2, cx + w // 2, base + h // 2), fill=EDGE)
+    d.ellipse((cx - w // 2, base, cx + w // 2, base + h), fill=EDGE)                 # coin edge
+    d.ellipse((cx - w // 2, top_y, cx + w // 2, top_y + h), fill=FACE)              # coin face
+cx, face = 514, 334 - thick  # top coin: raised rim like a real coin
+d.ellipse((cx - w // 2 + 22, face + 9, cx + w // 2 - 22, face + h - 9), outline=RIM, width=7)
+# A small sparkle so it reads as shiny metal.
+sx, sy, a = 650, 250, 34
+d.polygon([(sx, sy - a), (sx + 9, sy - 9), (sx + a, sy), (sx + 9, sy + 9), (sx, sy + a), (sx - 9, sy + 9),
+           (sx - a, sy), (sx - 9, sy - 9)], fill="#F4C430")
 
 # Ledger lines.
 for y, w in [(510, 300), (590, 220), (670, 260)]:
