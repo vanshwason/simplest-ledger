@@ -56,8 +56,9 @@ struct ContentView: View {
             .scrollDismissesKeyboard(.interactively)
             // Search sits under the title so the bottom edge belongs to the input bar.
             .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .automatic))
-            .safeAreaInset(edge: .bottom) { inputBar }
+            .safeAreaBar(edge: .bottom) { inputBar } // safeAreaBar adds the scroll edge fade under the glass
             .onAppear { inputFocused = true }
+            .onChange(of: showStatement || editing != nil || picker != nil) { _, open in if open { inputFocused = false } }
             .navigationTitle("Ledger")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { Button("Statement") { showStatement = true } }
