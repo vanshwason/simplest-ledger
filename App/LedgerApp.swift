@@ -71,7 +71,8 @@ struct ContentView: View {
                             Button(role: .destructive) { store.delete(ids: [e.id]) } label: { Label("Delete", systemImage: "trash") }
                         }
                 }
-                .onDelete { offsets in store.delete(ids: offsets.map { shown[$0].id }) }
+                // Swipe-to-delete off while selecting, so rows show only the checkmark.
+                .onDelete(perform: editMode.isEditing ? nil : { offsets in store.delete(ids: offsets.map { shown[$0].id }) })
             }
             .environment(\.editMode, $editMode)
             .overlay {
