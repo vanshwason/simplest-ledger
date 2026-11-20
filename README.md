@@ -1,77 +1,67 @@
-# Plain Ledger
+<p align="center"><img src="docs/icon.png" width="96" alt="Simplest Ledger icon"></p>
 
-A one-box money ledger for iPhone. Type it, or scan a receipt or payment screenshot (the receipt icon in the text box; read on-device, nothing uploaded). Type what happened, in English or Hinglish. The app works out the amount, type, category, payment method and person:
+<h1 align="center">Simplest Ledger</h1>
+
+<p align="center"><b>A private expense tracker for iPhone. Type it like a message.</b><br>
+No account. No internet. No ads. Everything stays on your phone.</p>
+
+<p align="center">
+<img src="docs/screenshots/list.png" width="200" alt="Expense list">
+<img src="docs/screenshots/split.png" width="200" alt="Split a bill">
+<img src="docs/screenshots/trip.png" width="200" alt="Trip mode">
+<img src="docs/screenshots/statement.png" width="200" alt="Monthly statement">
+</p>
+
+## Just type
 
 ```
-1500 spent on snacks
-5000 rupees lent through credit card to Rahul
-got 2000 back from Rahul
-salary 50000 credited
+1500 snacks via UPI
+lent 2000 to Rahul
+split the dinner with 3 people
+going on goa trip
 ```
 
-- **AI:** Apple's on-device model (iPhone 15 Pro or newer with Apple Intelligence on). It's free, works offline and nothing leaves the phone. A keyword parser runs first and is the fallback.
-- **Needs input:** if something is unclear (no amount, a loan with no name, an unknown category), the entry is flagged with a question. Tap it, answer, and the app reads it again.
-- **Statement:** a plain-English monthly statement with totals, a breakdown by category and by payment method, and who owes whom. Copy or share it.
-- **Several entries at once:** put one entry per line.
-- **Split a bill later:** type it in the same box. The app finds the expense and shows a confirm sheet before changing anything:
-  - `split the outing with 3 people`: finds the "outing" expense. Your share becomes the expense, and each person gets a Lent entry (names asked for in Needs input).
-  - `3 logo ne contribute kar diya outing ka`: they already paid, so only your share stays.
-  - `split 1200 dinner with Rahul, Amit and Neha`: no ₹1,200 expense yet, so it adds the bill and splits it.
-- **Delete several at once:** tap **⋯**, then **Select Entries**, tick them, and tap **Delete**. Or type it: `all entries were test entries please delete`, `delete today's entries`, `delete the snacks entry`, `sab entries hata do`. Typed deletes only *select* the entries; nothing is deleted until you confirm.
-- **English output:** if you type or dictate in Hindi script, the list and statement show an English version (needs the on-device AI). What you typed is kept too.
-  - Splitting the same expense again replaces the old split. Long-press any expense and choose **Split…** to do it by hand.
+Amount, category, payment method and person are filled in for you. Anything unclear goes to **Needs input**, where you answer with a tap.
 
-## Where your data lives
+## Features
 
-| Place | What |
-|---|---|
-| `ledger.json` in the app (Files app, On My iPhone, Ledger) | The main copy. It stays on the phone. |
-| Your backup folder (iCloud Drive or Google Drive) | `ledger-backup.csv`, rewritten after every change. Opens in Google Sheets, Numbers or Excel. |
+- 🧾 **Scan receipts** and UPI screenshots
+- 📩 **Bank SMS**: debits and credits added automatically (one-time Shortcuts setup, in the app)
+- 👥 **Split bills**: "he paid 700", "split with 3 people"; tracks who owes you
+- 🤝 **Lend and borrow**, with running balances
+- 🧳 **Trips**: group a trip's spending, see the total
+- 📊 **Monthly statement** in plain text: by category, by payment method, who owes whom
+- 🗂️ 20+ categories with icons; Dining Out, Food Delivery, Groceries, Utilities, Online Shopping…
+- 🌗 Dark mode, Liquid Glass design, Hindi and Hinglish input with English output
+- ⬇️ CSV export/import, auto-backup to an iCloud Drive or Google Drive folder you pick
 
-**If you miss the 7-day re-sign:** the app stops opening, but **your data is not deleted**. Run Sideloadly again with the same Apple ID and the app opens with everything intact. Data is lost only if you *delete* the app. Even then, your backup CSV is in iCloud or Google Drive; use Import CSV to bring it back.
+## Private and secure by design
 
-Set up the backup once: tap **⋯**, then **Choose backup folder**. Pick a folder in iCloud Drive, or in Google Drive (install the Google Drive app first and it appears in the picker).
+- **On-device only.** Your entries live in the app on your iPhone. No server, no cloud database.
+- **No account, no sign-up, no tracking.** No analytics, no ads, no internet access in the app.
+- **Smart parsing runs locally** with Apple Intelligence (iPhone 15 Pro or newer); otherwise a built-in offline parser.
+- **Receipts are read on the phone** and not stored. Backups go only to a folder you choose.
+- **Open source.** Read every line.
 
-## Install on your iPhone (free, from Windows)
+## Install (free, ~5 min)
 
-One-time setup:
-1. On the PC: **Apple Devices** (Microsoft Store, provides the iPhone USB driver) and **Impactor** (open-source sideloader from [github.com/CLARATION/Impactor](https://github.com/CLARATION/Impactor)), both installed with `winget`. Open Apple Devices once, plug in the iPhone and tap **Trust** on the phone. (Sideloadly also works, but needs the non-Store iTunes and iCloud.)
-2. On the iPhone: Settings, Privacy & Security, **Developer Mode**, turn it on. The phone restarts.
-3. Make sure Apple Intelligence is on: Settings, Apple Intelligence & Siri.
+1. Download **SimplestLedger.ipa** from [Releases](../../releases/latest).
+2. Install it with [Sideloadly](https://sideloadly.io) (Windows/Mac) and a free Apple ID.
+3. On the iPhone: Settings → General → VPN & Device Management → **Trust**. Turn on **Developer Mode** if asked.
 
-Each install:
-1. Download the newest `Ledger-ipa` from GitHub: repo, **Actions**, latest green run, **Artifacts**. Or run:
-   `gh run download --repo vanshwason/ledger-ios -n Ledger-ipa`
-2. Open **PlumeImpactor** from the Start menu, sign in with your Apple ID inside the app, pick your iPhone, drop in `Ledger.ipa` and install.
-3. First time only: on the iPhone go to Settings, General, VPN & Device Management, tap your Apple ID, then **Trust**.
-4. Repeat step 2 every 7 days, before the app expires. Your data stays.
+Free Apple IDs re-sign every 7 days: repeat step 2 and your data stays.
 
-Free Apple ID limits: 3 sideloaded apps at a time, and the app is re-signed every 7 days.
+<details>
+<summary>More screenshots</summary>
+<p>
+<img src="docs/screenshots/edit.png" width="200" alt="Edit by tapping">
+<img src="docs/screenshots/bank-sms.png" width="200" alt="Bank SMS setup">
+<img src="docs/screenshots/dark.png" width="200" alt="Dark mode">
+</p>
+</details>
 
-## Bank SMS → Ledger automatically (one-time setup)
+<details>
+<summary>Build from source</summary>
 
-iOS never lets apps read your SMS. A Shortcuts automation can pass matching messages to the app instead:
-
-1. Open the **Shortcuts** app, then **Automation**, **+**, **Message**.
-2. **Message Contains:** `debited`. Leave Sender empty (any bank). Choose **Run Immediately**, turn off **Notify When Run**, and tap **Next**.
-3. Tap **New Blank Automation**, then **Add Action**. Search **Add to Ledger** (from Plain Ledger) and set **Message** to *Shortcut Input → Content*.
-4. Repeat steps 1–3 for `spent`, and for `credited` if you also want income (salary, refunds).
-
-Every matching SMS now becomes an entry in the background. The app picks the payment amount and ignores account numbers and "Avl Bal". It also notes UPI or card, and the shop where it can (Swiggy, Amazon…). The same message is never added twice. OTPs and promos don't contain those words, so they're ignored.
-
-## WhatsApp → Ledger (one-time Shortcut)
-
-iPhone apps can't read WhatsApp chats, but WhatsApp can *share* a message to a Shortcut:
-
-1. Open **Shortcuts**, tap **+**, and name it **Add to Ledger**.
-2. Tap the **(i)** button and turn on **Show in Share Sheet**. Set the input to **Text**.
-3. Add the action **URL Encode** (input: Shortcut Input).
-4. Add the action **Open URLs** with the URL `ledger://add?text=` followed by the *URL Encoded Text* variable.
-
-Now in WhatsApp: long-press a message, tap **Forward**, then the **Share** icon, then **Add to Ledger**. It also works from Notes, Messages, or anywhere you can share text. Tip: send yourself "1500 snacks" on WhatsApp during the day and share those messages to Ledger later.
-
-Reading WhatsApp automatically would need an always-on server with the WhatsApp Business API (see PotBot or n8n's WhatsApp expense template). That isn't free or simple, so it isn't included.
-
-## Building
-
-Builds run on GitHub's free macOS runners (`.github/workflows/build.yml`) on every push: core tests, XcodeGen, unsigned build, then `Ledger.ipa`. Core logic (`LedgerCore/`) is a Swift package with tests: `swift test --package-path LedgerCore`.
+SwiftUI, iOS 26, no third-party dependencies. Every push builds an unsigned IPA on GitHub Actions (`.github/workflows/build.yml`) using [XcodeGen](https://github.com/yonaskolb/XcodeGen). Parsing logic lives in `LedgerCore` with tests: `swift test --package-path LedgerCore`.
+</details>
