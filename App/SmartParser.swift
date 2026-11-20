@@ -11,7 +11,7 @@ struct AIEntry {
     var kind: String
     // Keep in sync with RuleParser.categoryNames.
     @Guide(description: "Spending category. Dining Out = eating or drinking at a place; Food Delivery = Swiggy, Zomato or ordered in; Groceries = food to cook at home; Utilities = electricity, wifi, water, gas, phone recharge; Online Shopping = Amazon, Flipkart and similar.",
-           .anyOf(["Food Delivery", "Groceries", "Dining Out", "Utilities", "Rent", "Transport", "Online Shopping",
+           .anyOf(["Food Delivery", "Groceries", "Dining Out", "Utilities", "Rent", "ATM Cash", "Transport", "Online Shopping",
                    "Shopping", "Subscriptions", "Entertainment", "Health", "Personal Care", "Travel", "Education",
                    "EMI & Insurance", "Salary", "Gift", "Loan", "Income", "Other"]))
     var category: String

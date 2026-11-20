@@ -162,7 +162,11 @@ struct SMSSetupSheet: View {
                 Section {
                     TextField("Paste a bank SMS", text: $sample, axis: .vertical).lineLimit(2...5)
                     if !sample.trimmingCharacters(in: .whitespaces).isEmpty {
-                        EntryRow(entry: RuleParser.parse(sample)) // preview only, nothing is saved
+                        if let reason = MessageFilter.ignoreReason(sample) {
+                            Label("Would be skipped: looks like \(reason)", systemImage: "nosign").foregroundStyle(.secondary)
+                        } else {
+                            EntryRow(entry: RuleParser.parse(sample)) // preview only, nothing is saved
+                        }
                     }
                 } header: { Text("Try a message") } footer: {
                     Text("Shows what would be saved. Nothing is added from here.")

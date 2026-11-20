@@ -53,7 +53,7 @@ final class Store {
     /// day is skipped, since automations can fire more than once for one message.
     func addFromMessage(_ text: String) async -> Entry? {
         let clean = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !clean.isEmpty,
+        guard !clean.isEmpty, MessageFilter.ignoreReason(clean) == nil, // OTPs, failed or scheduled payments, offers…
               !entries.contains(where: { $0.raw == clean && Date().timeIntervalSince($0.date) < 86_400 }) else { return nil }
         let entry = await SmartParser.parse(clean)
         add(entry)

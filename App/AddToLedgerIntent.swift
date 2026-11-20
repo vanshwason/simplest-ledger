@@ -11,6 +11,9 @@ struct AddToLedgerIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        if let reason = MessageFilter.ignoreReason(text) {
+            return .result(dialog: "Skipped: this looks like \(reason).")
+        }
         guard let entry = await Store.shared.addFromMessage(text) else {
             return .result(dialog: "Already added, or the message was empty.")
         }
