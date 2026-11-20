@@ -200,29 +200,7 @@ struct ContentView: View {
                     if editMode.isEditing {
                         Button("Done") { animate { editMode = .inactive; selection = [] } }.bold()
                     } else {
-                    Menu {
-                        Button { showHelp = true } label: { Label("What Can I Type?", systemImage: "questionmark.circle") }
-                        Button { showSMS = true } label: { Label("Read Bank SMS…", systemImage: "message.badge") }
-                        Button { animate { editMode = .active } } label: { Label("Select Entries", systemImage: "checkmark.circle") }
-                        if store.activeTrip == nil {
-                            Button { tripName = ""; askTripName = true } label: { Label("Start a Trip…", systemImage: "suitcase") }
-                        } else {
-                            Button(action: endTrip) { Label("End Trip", systemImage: "suitcase.fill") }
-                        }
-                        ShareLink(item: CSVExport(entries: store.entries), preview: SharePreview("ledger.csv")) {
-                            Label("Export CSV", systemImage: "square.and.arrow.up")
-                        }
-                        Button { picker = .csv } label: { Label("Import CSV", systemImage: "square.and.arrow.down") }
-                        Button { picker = .folder } label: {
-                            Label(store.backupFolderName.map { "Backup folder: \($0)" } ?? "Choose backup folder",
-                                  systemImage: "externaldrive")
-                        }
-                        Picker(selection: Binding(get: { store.currency }, set: { store.currency = $0 })) {
-                            ForEach(Currency.common.contains(store.currency) ? Currency.common : [store.currency] + Currency.common,
-                                    id: \.self) { Text("\(Currency(code: $0).symbol)  \($0)").tag($0) }
-                        } label: { Label("Currency: \(store.currency)", systemImage: "banknote") }
-                        .pickerStyle(.menu)
-                    } label: { Image(systemName: "ellipsis.circle") }
+                        moreMenu
                     }
                 }
             }
@@ -281,16 +259,47 @@ struct ContentView: View {
                 input = text; add()
             }
             // Test hook for the CI simulator run: `-add "line1\nline2"` and `-statement`.
-            .task {
-                let args = ProcessInfo.processInfo.arguments
-                if let i = args.firstIndex(of: "-add"), i + 1 < args.count { input = args[i + 1]; add() }
-                showStatement = args.contains("-statement")
-                showSMS = args.contains("-sms-setup")
-                if args.contains("-edit-first") { editing = store.entries.first(where: \.needsInput) ?? store.entries.first }
-                if let i = args.firstIndex(of: "-sms"), i + 1 < args.count { _ = await store.addFromMessage(args[i + 1]) }
-                if let i = args.firstIndex(of: "-prefill"), i + 1 < args.count { input = args[i + 1] }
-            }
+            .task { await runTestHooks() }
         }
+    }
+
+    private func runTestHooks() async {
+        let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "-add"), i + 1 < args.count { input = args[i + 1]; add() }
+        showStatement = args.contains("-statement")
+        showSMS = args.contains("-sms-setup")
+        if args.contains("-edit-first") { editing = store.entries.first(where: \.needsInput) ?? store.entries.first }
+        if let i = args.firstIndex(of: "-sms"), i + 1 < args.count { _ = await store.addFromMessage(args[i + 1]) }
+        if let i = args.firstIndex(of: "-prefill"), i + 1 < args.count { input = args[i + 1] }
+    }
+
+    private var moreMenu: some View {
+        Menu {
+            Button { showHelp = true } label: { Label("What Can I Type?", systemImage: "questionmark.circle") }
+            Button { showSMS = true } label: { Label("Read Bank SMS…", systemImage: "message.badge") }
+            Button { animate { editMode = .active } } label: { Label("Select Entries", systemImage: "checkmark.circle") }
+            if store.activeTrip == nil {
+                Button { tripName = ""; askTripName = true } label: { Label("Start a Trip…", systemImage: "suitcase") }
+            } else {
+                Button(action: endTrip) { Label("End Trip", systemImage: "suitcase.fill") }
+            }
+            ShareLink(item: CSVExport(entries: store.entries), preview: SharePreview("ledger.csv")) {
+                Label("Export CSV", systemImage: "square.and.arrow.up")
+            }
+            Button { picker = .csv } label: { Label("Import CSV", systemImage: "square.and.arrow.down") }
+            Button { picker = .folder } label: {
+                Label(store.backupFolderName.map { "Backup folder: \($0)" } ?? "Choose backup folder", systemImage: "externaldrive")
+            }
+            currencyPicker
+        } label: { Image(systemName: "ellipsis.circle") }
+    }
+
+    private var currencyPicker: some View {
+        let codes: [String] = Currency.common.contains(store.currency) ? Currency.common : [store.currency] + Currency.common
+        return Picker(selection: Binding(get: { store.currency }, set: { store.currency = $0 })) {
+            ForEach(codes, id: \.self) { code in Text("\(Currency(code: code).symbol)  \(code)").tag(code) }
+        } label: { Label("Currency: \(store.currency)", systemImage: "banknote") }
+        .pickerStyle(.menu)
     }
 
     /// The app's one custom glass surface: a floating input bar with the view's single prominent action.
