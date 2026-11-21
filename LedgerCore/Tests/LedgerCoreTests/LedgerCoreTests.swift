@@ -255,4 +255,13 @@ final class LedgerCoreTests: XCTestCase {
         XCTAssertEqual(abs(back[0].date.timeIntervalSince(e.date)) < 1, true)
         XCTAssertThrowsError(try CSV.decode("date,kind\nnot-a-date,expense"))
     }
+
+    func testCSVFormulaDefused() throws {
+        var e = parse("=HYPERLINK(\"https://x.example\",\"Rs 500 debited\")")
+        e.note = "-5 refund"; e.person = "@ravi"
+        let csv = CSV.encode([e])
+        XCTAssertFalse(csv.contains(",=") || csv.contains(",\"=") || csv.contains(",-5") || csv.contains(",@"))
+        let back = try XCTUnwrap(CSV.decode(csv).first)
+        XCTAssertEqual(back.raw, e.raw); XCTAssertEqual(back.note, e.note); XCTAssertEqual(back.person, e.person)
+    }
 }

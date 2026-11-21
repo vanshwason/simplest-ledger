@@ -14,9 +14,9 @@ public enum CSV {
         let iso = ISO8601DateFormatter()
         var out = header.joined(separator: ",") + "\n"
         for e in entries {
-            let fields = [e.id.uuidString, iso.string(from: e.date), e.amount.map { "\($0)" } ?? "", e.kind.rawValue,
-                          e.category, e.method, e.person, e.note, e.question, e.raw,
-                          e.splitTotal.map { "\($0)" } ?? "", e.splitOf?.uuidString ?? "", e.trip ?? "", e.source ?? ""]
+            let text = [e.category, e.method, e.person, e.note, e.question, e.raw].map(defuse)
+            let fields = [e.id.uuidString, iso.string(from: e.date), e.amount.map { "\($0)" } ?? "", e.kind.rawValue] + text
+                + [e.splitTotal.map { "\($0)" } ?? "", e.splitOf?.uuidString ?? "", defuse(e.trip ?? ""), defuse(e.source ?? "")]
             out += fields.map(quote).joined(separator: ",") + "\n"
         }
         return out
@@ -30,7 +30,7 @@ public enum CSV {
                                uniquingKeysWith: { first, _ in first })
         let iso = ISO8601DateFormatter()
         return try all.dropFirst().enumerated().map { n, row in
-            func value(_ key: String) -> String { index[key].flatMap { $0 < row.count ? row[$0] : nil } ?? "" }
+            func value(_ key: String) -> String { restore(index[key].flatMap { $0 < row.count ? row[$0] : nil } ?? "") }
             let line = n + 2
             guard let date = iso.date(from: value("date")) else { throw BadRow(line: line, problem: "bad date '\(value("date"))'") }
             guard let kind = Kind(rawValue: value("kind")) else { throw BadRow(line: line, problem: "bad kind '\(value("kind"))'") }
@@ -46,6 +46,13 @@ public enum CSV {
             entry.source = value("source").isEmpty ? nil : value("source")
             return entry
         }
+    }
+
+    // An SMS like "=HYPERLINK(...)" would run as a formula when the backup is opened in Excel or Sheets.
+    static let formulaStarts: Set<Character> = ["=", "+", "-", "@", "\t", "\r"]
+    static func defuse(_ s: String) -> String { s.first.map(formulaStarts.contains) == true ? "'" + s : s }
+    static func restore(_ s: String) -> String {
+        s.first == "'" && s.dropFirst().first.map(formulaStarts.contains) == true ? String(s.dropFirst()) : s
     }
 
     static func quote(_ s: String) -> String {
