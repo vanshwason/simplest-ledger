@@ -215,6 +215,18 @@ struct EditView: View {
                     } footer: { Text("Tap an answer below.") }
                     .transition(.opacity)
                 }
+                if entry.question == Refund.question {
+                    Section {
+                        ForEach(Refund.candidates(for: entry, in: store.entries)) { p in
+                            Button {
+                                withAnimation(.snappy) { store.applyRefund(entry, to: p) }
+                                dismiss()
+                            } label: {
+                                LabeledContent(p.displayText, value: p.amount.map(money) ?? "")
+                            }
+                        }
+                    } header: { Text("Refund for which purchase?") } footer: { Text("Tap one to take the refund off it, or Save to keep this as money in.") }
+                }
                 Section {
                     HStack(spacing: 4) {
                         Text(Currency.current.symbol).font(.largeTitle.bold()).foregroundStyle(.secondary)

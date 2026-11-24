@@ -555,16 +555,15 @@ struct StatementView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var text: String { Statement.text(for: month, entries: store.entries) }
+    private var summary: Statement.Summary { Statement.summary(for: month, entries: store.entries) }
 
     var body: some View {
         NavigationStack {
-            // Two-axis scroll keeps the plain-text columns aligned instead of wrapping.
-            ScrollView([.vertical, .horizontal]) {
-                Text(text).font(.system(.footnote, design: .monospaced)).textSelection(.enabled)
-                    .fixedSize().padding()
-                    .id(month) // a new month pushes in from the side you tapped
-                    .transition(reduceMotion ? .opacity : .push(from: forward ? .trailing : .leading))
+            List {
+                StatementSections(s: summary)
             }
+            .id(month) // a new month pushes in from the side you tapped
+            .transition(reduceMotion ? .opacity : .push(from: forward ? .trailing : .leading))
             .sensoryFeedback(.selection, trigger: month)
             .navigationTitle(month.formatted(.dateTime.month(.wide).year().locale(english)))
             .navigationBarTitleDisplayMode(.inline)

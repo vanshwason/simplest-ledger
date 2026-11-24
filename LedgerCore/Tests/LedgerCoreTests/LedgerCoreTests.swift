@@ -83,6 +83,12 @@ final class LedgerCoreTests: XCTestCase {
         XCTAssertTrue(text.contains("NEEDS INPUT (1)"))
         XCTAssertTrue(Statement.text(for: cal.date(byAdding: .month, value: -1, to: now)!, entries: entries, calendar: cal)
             .contains("No entries this month."))
+
+        var october = parse("2000 spent on groceries"); october.date = cal.date(byAdding: .month, value: -1, to: now)!
+        let s = Statement.summary(for: now, entries: entries + [october], calendar: cal)
+        XCTAssertEqual(s.sentence, "You spent ₹1,500 in November, ₹500 less than October.")
+        XCTAssertEqual(s.categories.first?.name, "Dining Out")
+        XCTAssertEqual(s.people, [Statement.Line(name: "Rahul", amount: 4000)])
     }
 
     func testSplitParsing() {
@@ -254,6 +260,30 @@ final class LedgerCoreTests: XCTestCase {
         XCTAssertEqual(back[0].splitTotal, 4500); XCTAssertEqual(back[0].splitOf, e.splitOf); XCTAssertNil(back[1].splitOf)
         XCTAssertEqual(abs(back[0].date.timeIntervalSince(e.date)) < 1, true)
         XCTAssertThrowsError(try CSV.decode("date,kind\nnot-a-date,expense"))
+    }
+
+    func testRefundMatching() {
+        func bought(_ s: String, daysAgo: Double) -> Entry { var e = parse(s); e.date = now - daysAgo * 86_400; return e }
+        let myntra = bought("Rs 1,299.00 spent on ICICI Bank Credit Card XX7731 at MYNTRA", daysAgo: 3)
+        let amazon = bought("Rs 1,299.00 spent on ICICI Bank Credit Card XX7731 at AMAZON", daysAgo: 2)
+        let swiggy = bought("Rs 799.00 debited from A/c XX3301 to VPA swiggy@ybl. UPI Ref 631277665544", daysAgo: 1)
+        let old = bought("Rs 5,000 spent on card at MYNTRA", daysAgo: 90)
+        let ledger = [myntra, amazon, swiggy, old]
+
+        let refund = parse("Refund of Rs.499.00 for your ICICI Bank Credit Card XX7731 transaction at MYNTRA has been credited on 12-Nov-26.")
+        XCTAssertTrue(Refund.isRefund(refund))
+        XCTAssertEqual(Refund.match(for: refund, in: ledger)?.id, myntra.id) // by shop name, not the same-amount Amazon
+        let after = Refund.apply(refund, to: myntra)
+        XCTAssertEqual(after.amount, 800); XCTAssertTrue(after.raw.hasSuffix("Refund: " + refund.raw))
+
+        let reversal = parse("Rs 799.00 reversed to your Axis Bank A/c XX3301 on 12-11-26 for failed UPI txn Ref 631277665544")
+        XCTAssertEqual(Refund.match(for: reversal, in: ledger)?.id, swiggy.id) // by UPI reference
+        XCTAssertEqual(Refund.apply(reversal, to: swiggy).amount, 0)
+
+        let vague = parse("Refund of Rs 1,299 credited to your A/c XX7731")
+        XCTAssertNil(Refund.match(for: vague, in: ledger)) // Myntra or Amazon: ask
+        XCTAssertEqual(Refund.candidates(for: vague, in: ledger).map(\.id), [amazon.id, myntra.id])
+        XCTAssertFalse(Refund.isRefund(parse("salary 50000 credited")))
     }
 
     func testCSVFormulaDefused() throws {

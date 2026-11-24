@@ -67,12 +67,24 @@ final class Store {
     func addFromMessage(_ text: String) async -> Entry? {
         let clean = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !clean.isEmpty, MessageFilter.ignoreReason(clean) == nil, // OTPs, failed or scheduled payments, offers…
-              !entries.contains(where: { $0.raw == clean && Date().timeIntervalSince($0.date) < 86_400 }) else { return nil }
+              !entries.contains(where: { ($0.raw == clean && Date().timeIntervalSince($0.date) < 86_400)
+                                         || $0.raw.hasSuffix("Refund: " + clean) }) else { return nil }
         var entry = await SmartParser.parse(clean)
         entry.source = "sms"
-        add(entry)
         lastMessageAt = Date()
+        if Refund.isRefund(entry) {
+            if let purchase = Refund.match(for: entry, in: entries) { applyRefund(entry, to: purchase); return nil }
+            if !Refund.candidates(for: entry, in: entries).isEmpty { entry.question = Refund.question }
+        }
+        add(entry)
         return entry
+    }
+
+    /// Takes a refund off its purchase, keeps the message under it, and drops the separate refund entry.
+    func applyRefund(_ refund: Entry, to purchase: Entry) {
+        entries.removeAll { $0.id == refund.id }
+        guard let i = entries.firstIndex(where: { $0.id == purchase.id }) else { save(); return }
+        entries[i] = Refund.apply(refund, to: entries[i]); save()
     }
 
     func update(_ entry: Entry) {
