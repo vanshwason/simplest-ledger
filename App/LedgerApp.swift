@@ -7,6 +7,7 @@ import LedgerCore
 @main
 struct LedgerApp: App {
     @State private var store = Store.shared
+    init() { Alerts.listen() }
     var body: some Scene {
         WindowGroup { ContentView().environment(store) }
     }
@@ -263,8 +264,16 @@ struct ContentView: View {
                         .queryItems?.first(where: { $0.name == "text" })?.value else { return }
                 input = text; add()
             }
+            // A tapped "needs input" notification opens that entry.
+            .onChange(of: store.openEntry, initial: true) { _, id in
+                guard let id, let e = store.entries.first(where: { $0.id == id }) else { return }
+                store.openEntry = nil; editing = e
+            }
             // Test hook for the CI simulator run: `-add "line1\nline2"` and `-statement`.
-            .task { await runTestHooks() }
+            .task {
+                if store.lastMessageAt != nil { Alerts.ask() } // SMS users from before alerts existed
+                await runTestHooks()
+            }
         }
     }
 

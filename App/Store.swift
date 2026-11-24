@@ -54,6 +54,9 @@ final class Store {
         entries.append(entry); save()
     }
 
+    /// Set by a tapped notification; the main screen opens this entry.
+    var openEntry: UUID?
+
     /// When the automation last delivered a message, so the setup screen can say it's working.
     var lastMessageAt = UserDefaults.standard.object(forKey: "lastMessageAt") as? Date {
         didSet { UserDefaults.standard.set(lastMessageAt, forKey: "lastMessageAt") }
