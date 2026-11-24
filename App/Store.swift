@@ -80,6 +80,21 @@ final class Store {
         return entry
     }
 
+    /// A reply typed on a "needs input" notification: the shop for a refund, or what the money was for.
+    func answer(_ id: UUID, with reply: String) async {
+        let reply = reply.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !reply.isEmpty, let entry = entries.first(where: { $0.id == id }) else { return }
+        if entry.question == Refund.question {
+            let words = reply.lowercased().split(separator: " ").map(String.init)
+            if let p = Refund.candidates(for: entry, in: entries).first(where: { c in
+                words.contains { $0.count >= 3 && (c.raw + " " + c.note + " " + c.category).lowercased().contains($0) } }) {
+                applyRefund(entry, to: p)
+            }
+            return
+        }
+        update(entry.answered(reply, info: await SmartParser.parse(reply)))
+    }
+
     /// Takes a refund off its purchase, keeps the message under it, and drops the separate refund entry.
     func applyRefund(_ refund: Entry, to purchase: Entry) {
         entries.removeAll { $0.id == refund.id }

@@ -262,6 +262,15 @@ final class LedgerCoreTests: XCTestCase {
         XCTAssertThrowsError(try CSV.decode("date,kind\nnot-a-date,expense"))
     }
 
+    func testNotificationReply() {
+        let sms = parse("Rs.640.00 debited from A/c XX4821 to VPA abcd@ybl. UPI Ref 631233445566")
+        XCTAssertTrue(sms.needsInput)
+        let food = sms.answered("groceries for home", info: parse("groceries for home"))
+        XCTAssertEqual(food.category, "Groceries"); XCTAssertEqual(food.amount, 640); XCTAssertFalse(food.needsInput)
+        let loan = sms.answered("lent to Rahul", info: parse("lent to Rahul"))
+        XCTAssertEqual(loan.kind, .lent); XCTAssertEqual(loan.person, "Rahul"); XCTAssertEqual(loan.amount, 640)
+    }
+
     func testRefundMatching() {
         func bought(_ s: String, daysAgo: Double) -> Entry { var e = parse(s); e.date = now - daysAgo * 86_400; return e }
         let myntra = bought("Rs 1,299.00 spent on ICICI Bank Credit Card XX7731 at MYNTRA", daysAgo: 3)

@@ -61,6 +61,20 @@ public struct Entry: Codable, Identifiable, Equatable, Sendable {
         self.question = question
     }
 
+    /// Your reply to "needs input" ("groceries for home", "lent it to Rahul"), read as `info`, fills in what was missing.
+    /// The bank's amount and method stay unless the entry had none.
+    public func answered(_ reply: String, info: Entry) -> Entry {
+        var e = self
+        if e.amount == nil { e.amount = info.amount }
+        if info.kind.needsPerson { e.kind = info.kind }
+        if info.category != "Other" && !info.category.isEmpty { e.category = info.category }
+        if e.method.isEmpty { e.method = info.method }
+        if !info.person.isEmpty { e.person = info.person }
+        e.note = [e.note, reply].filter { !$0.isEmpty }.joined(separator: " · ")
+        e.question = e.missingInfo()
+        return e
+    }
+
     /// What we still need to know, or "" when the entry is complete.
     /// `checkCategory` is off after you save by hand, so a deliberate "Other" stays.
     public func missingInfo(checkCategory: Bool = true) -> String {
