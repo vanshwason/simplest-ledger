@@ -21,8 +21,15 @@ public enum MessageFilter {
         return t.contains(RuleParser.currencyRegex) || bankMarks.contains { t.contains($0) }
     }
 
+    /// Since May 2025 Indian senders end in -P (promotional), -S (service), -T (transactional) or -G (government).
+    /// Bank alerts are -S or -T, so a -P sender is an ad, whatever its text says.
+    public static func isPromo(sender: String?) -> Bool {
+        sender?.trimmingCharacters(in: .whitespacesAndNewlines).uppercased().hasSuffix("-P") == true
+    }
+
     /// Why the message should be skipped, or nil if it's a real transaction.
-    public static func ignoreReason(_ text: String) -> String? {
+    public static func ignoreReason(_ text: String, sender: String? = nil) -> String? {
+        if isPromo(sender: sender) { return "a promotional message" }
         let t = text.lowercased()
         func any(_ phrases: [String]) -> Bool { phrases.contains { t.contains($0) } }
         if !looksLikeTransaction(text) { return "a normal message, not a bank transaction" }

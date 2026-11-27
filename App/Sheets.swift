@@ -148,7 +148,7 @@ struct SMSSetupSheet: View {
                     }
                     .buttonStyle(.glassProminent).tint(accent)
                 } header: { Text("One-time setup, about a minute") } footer: {
-                    Text("Chats and OTPs are ignored automatically. On iOS 26: Automation tab → + → Message, then Run Immediately.")
+                    Text("Chats and OTPs are ignored automatically. On iOS 26: Automation tab → + → Message, then Run Immediately. Optional: tap › on Add to Ledger and set Sender to the blue Sender, so ads (senders ending in -P) are skipped.")
                 }
 
                 Section {

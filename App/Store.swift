@@ -64,14 +64,19 @@ final class Store {
 
     /// From the Shortcuts automation (a bank SMS, a shared WhatsApp message). The same text twice within a
     /// day is skipped, since automations can fire more than once for one message.
-    func addFromMessage(_ text: String) async -> Entry? {
+    func addFromMessage(_ text: String, sender: String? = nil) async -> Entry? {
         let clean = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !clean.isEmpty, MessageFilter.ignoreReason(clean) == nil, // OTPs, failed or scheduled payments, offers…
+        guard !clean.isEmpty, MessageFilter.ignoreReason(clean, sender: sender) == nil, // OTPs, failed payments, ads…
               !entries.contains(where: { ($0.raw == clean && Date().timeIntervalSince($0.date) < 86_400)
                                          || $0.raw.hasSuffix("Refund: " + clean) }) else { return nil }
         var entry = await SmartParser.parse(clean)
         entry.source = "sms"
         lastMessageAt = Date()
+        // A shop you've categorized before keeps that category.
+        if let category = Shop.lastCategory(for: entry, in: entries) {
+            entry.category = category
+            entry.question = entry.missingInfo()
+        }
         if Refund.isRefund(entry) {
             if let purchase = Refund.match(for: entry, in: entries) { applyRefund(entry, to: purchase); return nil }
             if !Refund.candidates(for: entry, in: entries).isEmpty { entry.question = Refund.question }
@@ -93,6 +98,25 @@ final class Store {
             return
         }
         update(entry.answered(reply, info: await SmartParser.parse(reply)))
+    }
+
+    /// A category button on a "needs input" notification.
+    func setCategory(_ id: UUID, to category: String) {
+        guard var e = entries.first(where: { $0.id == id }) else { return }
+        e.category = category
+        if e.question != Refund.question { e.question = e.missingInfo() }
+        update(e)
+    }
+
+    /// Your most used spending categories lately, for the notification buttons.
+    func topCategories(_ n: Int) -> [String] {
+        let since = Date().addingTimeInterval(-90 * 86_400)
+        var counts: [String: Int] = [:]
+        for e in entries where e.kind == .expense && e.date > since && e.category != "Other" && !e.category.isEmpty {
+            counts[e.category, default: 0] += 1
+        }
+        let top = counts.sorted { ($0.value, $1.key) > ($1.value, $0.key) }.map(\.key)
+        return Array((top + ["Food Delivery", "Groceries", "Online Shopping"].filter { !top.contains($0) }).prefix(n))
     }
 
     /// Takes a refund off its purchase, keeps the message under it, and drops the separate refund entry.
@@ -174,22 +198,38 @@ final class Store {
         backup()
     }
 
+    private var backupTask: Task<Void, Never>?
+
+    /// Writes the CSV off the main thread, half a second after the last change, so typing never waits on iCloud Drive.
     private func backup() {
         guard let bookmark = UserDefaults.standard.data(forKey: bookmarkKey) else { return }
+        let csv = CSV.encode(entries), name = backupFileName, key = bookmarkKey
+        backupTask?.cancel()
+        backupTask = Task {
+            try? await Task.sleep(for: .milliseconds(500)) // a burst of saves writes once
+            guard !Task.isCancelled else { return }
+            if let failure = await Task.detached(operation: { Store.write(csv, named: name, bookmark: bookmark, key: key) }).value {
+                error = failure
+            }
+        }
+    }
+
+    /// Waits for a pending backup; the Shortcuts action calls this so the CSV is written before iOS suspends the app.
+    func finishBackup() async { await backupTask?.value }
+
+    /// The error to show, or nil when the backup was written.
+    nonisolated private static func write(_ csv: String, named name: String, bookmark: Data, key: String) -> String? {
         var stale = false
         guard let folder = try? URL(resolvingBookmarkData: bookmark, bookmarkDataIsStale: &stale) else {
-            error = "Backup folder is not reachable. Pick it again from the menu."
-            return
+            return "Backup folder is not reachable. Pick it again from the menu."
         }
         let ok = folder.startAccessingSecurityScopedResource()
         defer { if ok { folder.stopAccessingSecurityScopedResource() } }
-        let csv = CSV.encode(entries)
         var coordError: NSError?, writeError: Error?
-        NSFileCoordinator().coordinate(writingItemAt: folder.appending(path: backupFileName),
-                                       options: .forReplacing, error: &coordError) { url in
+        NSFileCoordinator().coordinate(writingItemAt: folder.appending(path: name), options: .forReplacing, error: &coordError) { url in
             do { try csv.write(to: url, atomically: true, encoding: .utf8) } catch { writeError = error }
         }
-        if let e = coordError ?? writeError { error = "Backup failed: \(e.localizedDescription)" }
-        if stale, let fresh = try? folder.bookmarkData() { UserDefaults.standard.set(fresh, forKey: bookmarkKey) }
+        if stale, let fresh = try? folder.bookmarkData() { UserDefaults.standard.set(fresh, forKey: key) }
+        return (coordError ?? writeError).map { "Backup failed: \($0.localizedDescription)" }
     }
 }

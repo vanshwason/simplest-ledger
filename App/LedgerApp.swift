@@ -272,6 +272,7 @@ struct ContentView: View {
             // Test hook for the CI simulator run: `-add "line1\nline2"` and `-statement`.
             .task {
                 if store.lastMessageAt != nil { Alerts.ask() } // SMS users from before alerts existed
+                Alerts.setButtons(store.topCategories(2))
                 await runTestHooks()
             }
         }
@@ -552,9 +553,9 @@ struct StatementView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var month = Date()
     @State private var forward = true
+    @State private var sharing = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var text: String { Statement.text(for: month, entries: store.entries) }
     private var summary: Statement.Summary { Statement.summary(for: month, entries: store.entries) }
 
     var body: some View {
@@ -567,9 +568,12 @@ struct StatementView: View {
             .sensoryFeedback(.selection, trigger: month)
             .navigationTitle(month.formatted(.dateTime.month(.wide).year().locale(english)))
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $sharing) { ShareStatementSheet(month: month).presentationDetents([.medium, .large]) }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }
-                ToolbarItem(placement: .primaryAction) { ShareLink(item: text) }
+                ToolbarItem(placement: .primaryAction) {
+                    Button { sharing = true } label: { Label("Share", systemImage: "square.and.arrow.up") }
+                }
                 ToolbarItemGroup(placement: .bottomBar) {
                     Button { shift(-1) } label: { Label("Previous month", systemImage: "chevron.left") }
                     Spacer()
@@ -589,9 +593,10 @@ struct StatementView: View {
 
 struct CSVExport: Transferable {
     let entries: [Entry]
+    var name = "ledger.csv"
     static var transferRepresentation: some TransferRepresentation {
         FileRepresentation(exportedContentType: .commaSeparatedText) { item in
-            let url = FileManager.default.temporaryDirectory.appending(path: "ledger.csv")
+            let url = FileManager.default.temporaryDirectory.appending(path: item.name)
             try CSV.encode(item.entries).write(to: url, atomically: true, encoding: .utf8)
             return SentTransferredFile(url)
         }

@@ -91,6 +91,50 @@ final class LedgerCoreTests: XCTestCase {
         XCTAssertEqual(s.people, [Statement.Line(name: "Rahul", amount: 4000)])
     }
 
+    func testStatementParts() {
+        let entries = [parse("1500 spent on snacks via upi"), parse("5000 lent to Rahul by credit card")]
+        let text = Statement.text(for: now, entries: entries, parts: [.categories], calendar: cal)
+        XCTAssertTrue(text.contains("SPENDING BY CATEGORY"))
+        XCTAssertFalse(text.contains("You spent") || text.contains("ENTRIES") || text.contains("Rahul"))
+    }
+
+    func testPaceAndHistory() {
+        func day(_ d: Int, _ amount: Decimal) -> Entry {
+            Entry(date: cal.date(from: DateComponents(year: 2026, month: 10, day: d, hour: 12))!, raw: "x", amount: amount)
+        }
+        let october = cal.date(from: DateComponents(year: 2026, month: 10, day: 15))!
+        let s = Statement.summary(for: october, entries: [day(2, 100), day(2, 50), day(20, 300)], calendar: cal)
+        XCTAssertEqual(s.pace.count, 31)
+        XCTAssertEqual(s.pace[0], 0); XCTAssertEqual(s.pace[1], 150); XCTAssertEqual(s.pace[30], 450)
+        XCTAssertEqual(s.history.map(\.name), ["May", "Jun", "Jul", "Aug", "Sep", "Oct"])
+        XCTAssertEqual(s.history.last?.amount, 450)
+    }
+
+    func testRecurringAndShopMemory() {
+        func sms(_ text: String, daysAgo: Double, _ amount: Decimal, category: String = "Other") -> Entry {
+            Entry(date: now.addingTimeInterval(-daysAgo * 86_400), raw: text, amount: amount, category: category)
+        }
+        let netflix = [90.0, 60, 30].map { sms("Rs 649 debited from A/c XX1234 to NETFLIX on autopay", daysAgo: $0, 649, category: "Entertainment") }
+        let swiggy = [40.0, 33, 2].map { sms("Sent Rs.250 from Kotak Bank AC X1234 to swiggy@ybl. UPI Ref 51234567", daysAgo: $0, 250, category: "Food Delivery") }
+        let found = Recurring.find(in: netflix + swiggy)
+        XCTAssertEqual(found.map(\.name), ["Netflix"]) // Swiggy isn't monthly
+        XCTAssertEqual(found.first?.amount, 649)
+
+        // A category fixed once sticks to the shop; bank wording ("sent", "kotak") doesn't.
+        let new = sms("Sent Rs.180 from Kotak Bank AC X1234 to swiggy@ybl. UPI Ref 59999999", daysAgo: 0, 180)
+        XCTAssertEqual(Shop.lastCategory(for: new, in: netflix + swiggy), "Food Delivery")
+        let other = sms("Sent Rs.90 from Kotak Bank AC X1234 to ramesh@ybl. UPI Ref 58888888", daysAgo: 0, 90)
+        XCTAssertNil(Shop.lastCategory(for: other, in: netflix + swiggy))
+    }
+
+    func testPromoSender() {
+        XCTAssertTrue(MessageFilter.isPromo(sender: "VM-HDFCBK-P"))
+        XCTAssertFalse(MessageFilter.isPromo(sender: "JD-HDFCBK-S"))
+        XCTAssertFalse(MessageFilter.isPromo(sender: nil))
+        XCTAssertEqual(MessageFilter.ignoreReason("Rs 500 debited from A/c XX1234 to SWIGGY", sender: "AX-SWIGGY-P"),
+                       "a promotional message")
+    }
+
     func testSplitParsing() {
         XCTAssertNil(Split.parse("1500 spent on snacks"))
         XCTAssertNil(Split.parse("200 shared auto"))

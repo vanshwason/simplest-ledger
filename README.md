@@ -42,7 +42,7 @@ Anything the app isn't sure about goes to <b>Needs input</b>. Answer with one ta
 <tr>
 <td><img src="docs/screenshots/statement.png" width="280" alt="Monthly statement"></td>
 <td><h3>📊 Monthly statement</h3>
-Plain text: by category, by payment method, who owes whom. Copy or share.</td>
+Spending pace, last 6 months, by category, payment method, recurring payments, who owes whom. Share the parts you pick as text or CSV.</td>
 </tr>
 <tr>
 <td><img src="docs/screenshots/dark.png" width="280" alt="Dark mode"></td>
@@ -94,6 +94,8 @@ iOS doesn't let apps read SMS, so a Shortcuts automation hands each message to t
    <img src="docs/shortcut/3-run.png" width="360" alt="Automation on, Confirm Before Run off">
 
 On iOS 26: Shortcuts → **Automation** tab → **+** → **Message**, then the same settings, with **Run Immediately**.
+
+Optional, India: tap **›** on Add to Ledger and set *Sender* to the blue **Sender**. Ads come from senders ending in **-P** and are skipped.
 
 ---
 

@@ -8,16 +8,20 @@ struct AddToLedgerIntent: AppIntent {
     static let openAppWhenRun = false
 
     @Parameter(title: "Message") var text: String
+    /// Optional: the message's Sender. An Indian sender ending in -P is an ad and is skipped.
+    @Parameter(title: "Sender") var sender: String?
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        if let reason = MessageFilter.ignoreReason(text) {
+        if let reason = MessageFilter.ignoreReason(text, sender: sender) {
             return .result(dialog: "Skipped: this looks like \(reason).")
         }
-        guard let entry = await Store.shared.addFromMessage(text) else {
+        let added = await Store.shared.addFromMessage(text, sender: sender)
+        await Store.shared.finishBackup()
+        guard let entry = added else {
             return .result(dialog: "Already added, taken off its purchase as a refund, or empty.")
         }
-        if entry.needsInput { Alerts.needsInput(entry) }
+        if entry.needsInput { Alerts.needsInput(entry, buttons: Store.shared.topCategories(2)) }
         let amount = entry.amount.map(money) ?? "an amount to check"
         return .result(dialog: "Added \(amount) · \(entry.category)\(entry.needsInput ? " (needs input)" : "")")
     }
